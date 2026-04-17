@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="GuessWord.Api/GuessWord.Api.csproj" Id="5408f5be-41b3-42ee-8d85-d81f32299b33" />
+  <Project Path="GuessWord.Client/GuessWord.Client.csproj" Id="bbae356a-7259-4e27-8dd1-9cacd9267333" />
+  <Project Path="GuessWord.Shared/GuessWord.Shared.csproj" Id="a3850a22-05f0-42a5-aad8-76002312ffd7" />
+</Solution>

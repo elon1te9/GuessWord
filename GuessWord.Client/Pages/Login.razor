@@ -1,0 +1,73 @@
+﻿@page "/login"
+@layout MainLayout
+@using GuessWord.Shared.Requests
+@inject GuessWord.Client.Services.AuthService AuthService
+@inject NavigationManager Navigation
+
+<MudContainer MaxWidth="MaxWidth.False" Class="auth-page-container">
+    <MudPaper Class="auth-card" Elevation="0">
+        <MudText Typo="Typo.h3" Class="auth-title">
+            Авторизация
+        </MudText>
+
+        <div class="auth-field-block">
+            <MudText Class="auth-label">Логин:</MudText>
+            <MudTextField @bind-Value="model.Login"
+                          Variant="Variant.Text"
+                          Class="auth-input"
+                          Underline="false"
+                          Immediate="true" />
+        </div>
+
+        <div class="auth-field-block">
+            <MudText Class="auth-label">Пароль:</MudText>
+            <MudTextField @bind-Value="model.Password"
+                          InputType="InputType.Password"
+                          Variant="Variant.Text"
+                          Class="auth-input"
+                          Underline="false"
+                          Immediate="true" />
+        </div>
+
+        <MudText Class="auth-message">
+            @errorMessage
+        </MudText>
+
+        <MudButton Class="auth-button"
+                   Variant="Variant.Filled"
+                   DisableElevation="true"
+                   OnClick="LoginUser">
+            Войти
+        </MudButton>
+
+        <MudText Class="auth-footer-text">
+            Еще нет аккаунта?
+            <a href="/register">Зарегистрироваться</a>
+        </MudText>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private LoginRequestDto model = new();
+    private string errorMessage = "Заполните все поля!";
+
+    private async Task LoginUser()
+    {
+        if (string.IsNullOrWhiteSpace(model.Login) || string.IsNullOrWhiteSpace(model.Password))
+        {
+            errorMessage = "Заполните все поля!";
+            return;
+        }
+
+        var result = await AuthService.Login(model);
+
+        if (result is null)
+        {
+            errorMessage = "Неверный логин или пароль.";
+            return;
+        }
+
+        errorMessage = string.Empty;
+        Navigation.NavigateTo("/");
+    }
+}

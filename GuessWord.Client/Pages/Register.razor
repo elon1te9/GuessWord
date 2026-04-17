@@ -1,0 +1,82 @@
+﻿@page "/register"
+@layout MainLayout
+@using GuessWord.Shared.Requests
+@inject GuessWord.Client.Services.AuthService AuthService
+@inject NavigationManager Navigation
+
+<MudContainer MaxWidth="MaxWidth.False" Class="auth-page-container">
+    <MudPaper Class="auth-card register-card" Elevation="0">
+        <MudText Typo="Typo.h3" Class="auth-title">
+            Регистрация
+        </MudText>
+
+        <div class="auth-field-block">
+            <MudText Class="auth-label">Логин:</MudText>
+            <MudTextField @bind-Value="model.Login"
+                          Variant="Variant.Text"
+                          Class="auth-input"
+                          Underline="false"
+                          Immediate="true" />
+        </div>
+
+        <div class="auth-field-block">
+            <MudText Class="auth-label">Имя:</MudText>
+            <MudTextField @bind-Value="model.Name"
+                          Variant="Variant.Text"
+                          Class="auth-input"
+                          Underline="false"
+                          Immediate="true" />
+        </div>
+
+        <div class="auth-field-block">
+            <MudText Class="auth-label">Пароль:</MudText>
+            <MudTextField @bind-Value="model.Password"
+                          InputType="InputType.Password"
+                          Variant="Variant.Text"
+                          Class="auth-input"
+                          Underline="false"
+                          Immediate="true" />
+        </div>
+
+        <MudText Class="auth-message">
+            @errorMessage
+        </MudText>
+
+        <MudButton Class="auth-button"
+                   Variant="Variant.Filled"
+                   DisableElevation="true"
+                   OnClick="RegisterUser">
+            Зарегистрироваться
+        </MudButton>
+
+        <MudText Class="auth-footer-text">
+            Уже есть аккаунт?
+            <a href="/login">Войти</a>
+        </MudText>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private RegisterRequestDto model = new();
+    private string errorMessage = "Заполните все поля!";
+
+    private async Task RegisterUser()
+    {
+        if (string.IsNullOrWhiteSpace(model.Login) || string.IsNullOrWhiteSpace(model.Password))
+        {
+            errorMessage = "Заполните все поля!";
+            return;
+        }
+
+        var result = await AuthService.Register(model);
+
+        if (result is null)
+        {
+            errorMessage = "Не удалось зарегистрироваться.";
+            return;
+        }
+
+        errorMessage = string.Empty;
+        Navigation.NavigateTo("/");
+    }
+}

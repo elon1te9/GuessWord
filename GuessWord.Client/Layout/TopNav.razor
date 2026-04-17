@@ -1,0 +1,42 @@
+﻿@using MudBlazor
+@inject NavigationManager Navigation
+
+<MudPaper Class="top-nav-shell" Elevation="0">
+    <div class="top-nav-left">
+        <MudIconButton Icon="@Icons.Material.Outlined.Home"
+                       Class="@GetNavButtonClass("/")"
+                       OnClick='() => NavigateTo("/")' />
+
+        <MudIconButton Icon="@Icons.Material.Outlined.SportsEsports"
+                       Class="@GetNavButtonClass("/game")"
+                       OnClick='() => NavigateTo("/game")' />
+
+        <MudIconButton Icon="@Icons.Material.Outlined.BarChart"
+                       Class="@GetNavButtonClass("/leaderboard")"
+                       OnClick='() => NavigateTo("/leaderboard")' />
+
+        <MudIconButton Icon="@Icons.Material.Outlined.Person"
+                       Class="@GetNavButtonClass("/login", "/register", "/profile")"
+                       OnClick='() => NavigateTo("/login")' />
+    </div>
+
+    <MudText Class="top-nav-logo" Typo="Typo.h3" @onclick='() => NavigateTo("/")'>
+        GuessWord
+    </MudText>
+</MudPaper>
+
+@code {
+    private void NavigateTo(string url)
+    {
+        Navigation.NavigateTo(url);
+    }
+
+    private string GetNavButtonClass(params string[] urls)
+    {
+        var currentPath = Navigation.ToBaseRelativePath(Navigation.Uri).ToLower();
+        currentPath = "/" + currentPath;
+
+        var isActive = urls.Any(url => currentPath == url.ToLower());
+        return isActive ? "top-nav-btn active-nav-btn" : "top-nav-btn";
+    }
+}

@@ -1,0 +1,24 @@
+﻿@page "/profile"
+@inject GuessWord.Client.Services.UserStateService UserStateService
+@inject NavigationManager Navigation
+
+<h3>Профиль</h3>
+
+@if (UserStateService.IsAuthorized)
+{
+    <p>Вы вошли как: @UserStateService.Login</p>
+}
+else
+{
+    <p>Перенаправление...</p>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        if (!UserStateService.IsAuthorized)
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }
+}

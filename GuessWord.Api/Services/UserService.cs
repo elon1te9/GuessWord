@@ -1,0 +1,104 @@
+﻿using GuessWord.Api.Data;
+using GuessWord.Api.Interfaces;
+using GuessWord.Api.Models;
+using GuessWord.Shared.Requests;
+using GuessWord.Shared.Responses;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
+namespace GuessWord.Api.Services
+{
+    public class UserService : IUserService
+    {
+        private readonly AppDbContext _context;
+        private readonly IJwtService _jwtService;
+        private readonly PasswordHasher<User> _passwordHasher;
+
+        public UserService(AppDbContext context, IJwtService jwtService)
+        {
+            _context = context;
+            _jwtService = jwtService;
+            _passwordHasher = new PasswordHasher<User>();
+        }
+
+        public async Task<IActionResult> Register(RegisterRequestDto request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Login) || string.IsNullOrWhiteSpace(request.Password) || string.IsNullOrWhiteSpace(request.Name))
+            {
+                return new BadRequestObjectResult("Введены не все данные.");
+            }
+
+            var normalizedLogin = request.Login.Trim();
+            var loginExists = await _context.Users.AnyAsync(x => x.Login == normalizedLogin);
+            if (loginExists)
+            {
+                return new BadRequestObjectResult("Пользователь с таким логином уже существует.");
+            }
+
+            var normalizedName = request.Name.Trim();
+            var nameExists = await _context.Users.AnyAsync(x => x.Name == normalizedName);
+            if (nameExists)
+            {
+                return new BadRequestObjectResult("Пользователь с таким именем уже существует.");
+            }
+
+            var user = new User
+            {
+                Login = normalizedLogin,
+                Name = normalizedName,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
+
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var token = _jwtService.GenerateToken(user);
+
+            var response = new AuthResponseDto
+            {
+                Token = token,
+                Login = user.Login,
+                Name = user.Name
+            };
+
+            return new OkObjectResult(response);
+        }
+
+        public async Task<IActionResult> Login(LoginRequestDto request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Login) || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return new BadRequestObjectResult("Введены не все данные.");
+            }
+
+            var normalizedLogin = request.Login.Trim();
+
+            var user = await _context.Users.FirstOrDefaultAsync(x => x.Login == normalizedLogin);
+            if (user is null)
+            {
+                return new BadRequestObjectResult("Неверный логин.");
+            }
+
+            var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
+
+            if (result == PasswordVerificationResult.Failed)
+            {
+                return new BadRequestObjectResult("Неверный пароль.");
+            }
+
+            var token = _jwtService.GenerateToken(user);
+
+            var response = new AuthResponseDto
+            {
+                Token = token,
+                Login = user.Login,
+                Name = user.Name!
+            };
+
+            return new OkObjectResult(response);
+        }
+    }
+}
