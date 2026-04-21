@@ -1,42 +1,38 @@
-﻿@using MudBlazor
-@inject NavigationManager Navigation
+﻿@inject NavigationManager Nav
 
-<MudPaper Class="top-nav-shell" Elevation="0">
-    <div class="top-nav-left">
-        <MudIconButton Icon="@Icons.Material.Outlined.Home"
-                       Class="@GetNavButtonClass("/")"
-                       OnClick='() => NavigateTo("/")' />
+<div class="topbar">
+    <div class="topbar-left">
 
-        <MudIconButton Icon="@Icons.Material.Outlined.SportsEsports"
-                       Class="@GetNavButtonClass("/game")"
-                       OnClick='() => NavigateTo("/game")' />
+        <button class="nav-btn @(IsActive("/") ? "active" : "")" @onclick='() => Go("/")'>
+            <i class="bi bi-house"></i>
+        </button>
 
-        <MudIconButton Icon="@Icons.Material.Outlined.BarChart"
-                       Class="@GetNavButtonClass("/leaderboard")"
-                       OnClick='() => NavigateTo("/leaderboard")' />
+        <button class="nav-btn @(IsActive("/game") ? "active" : "")" @onclick='() => Go("/game")'>
+            <i class="bi bi-controller"></i>
+        </button>
 
-        <MudIconButton Icon="@Icons.Material.Outlined.Person"
-                       Class="@GetNavButtonClass("/login", "/register", "/profile")"
-                       OnClick='() => NavigateTo("/login")' />
+        <button class="nav-btn @(IsActive("/leaderboard") ? "active" : "")" @onclick='() => Go("/leaderboard")'>
+            <i class="bi bi-bar-chart"></i>
+        </button>
+
+        <button class="nav-btn @(IsActive("/login") ? "active" : "")" @onclick='() => Go("/login")'>
+            <i class="bi bi-person"></i>
+        </button>
+
     </div>
 
-    <MudText Class="top-nav-logo" Typo="Typo.h3" @onclick='() => NavigateTo("/")'>
+    <div class="logo" @onclick='() => Go("/")'>
         GuessWord
-    </MudText>
-</MudPaper>
+    </div>
+</div>
 
 @code {
-    private void NavigateTo(string url)
-    {
-        Navigation.NavigateTo(url);
-    }
+    void Go(string url) => Nav.NavigateTo(url);
 
-    private string GetNavButtonClass(params string[] urls)
+    bool IsActive(string url)
     {
-        var currentPath = Navigation.ToBaseRelativePath(Navigation.Uri).ToLower();
-        currentPath = "/" + currentPath;
-
-        var isActive = urls.Any(url => currentPath == url.ToLower());
-        return isActive ? "top-nav-btn active-nav-btn" : "top-nav-btn";
+        var current = "/" + Nav.ToBaseRelativePath(Nav.Uri).Trim('/');
+        if (current == "//") current = "/";
+        return current == url;
     }
 }

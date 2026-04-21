@@ -16,4 +16,8 @@
     <ProjectReference Include="..\GuessWord.Shared\GuessWord.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Components\" />
+  </ItemGroup>
+
 </Project>

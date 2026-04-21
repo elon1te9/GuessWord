@@ -1,65 +1,54 @@
 ﻿@page "/login"
-@layout MainLayout
-@using GuessWord.Shared.Requests
 @inject GuessWord.Client.Services.AuthService AuthService
 @inject NavigationManager Navigation
 
-<MudContainer MaxWidth="MaxWidth.False" Class="auth-page-container">
-    <MudPaper Class="auth-card" Elevation="0">
-        <MudText Typo="Typo.h3" Class="auth-title">
-            Авторизация
-        </MudText>
+<div class="auth-page">
+    <div class="auth-card">
+        <div class="auth-title">Авторизация</div>
 
-        <div class="auth-field-block">
-            <MudText Class="auth-label">Логин:</MudText>
-            <MudTextField @bind-Value="model.Login"
-                          Variant="Variant.Text"
-                          Class="auth-input"
-                          Underline="false"
-                          Immediate="true" />
+        <div class="auth-field">
+            <label class="auth-label">Логин:</label>
+            <input class="auth-input" @bind="login" placeholder="Логин" />
         </div>
 
-        <div class="auth-field-block">
-            <MudText Class="auth-label">Пароль:</MudText>
-            <MudTextField @bind-Value="model.Password"
-                          InputType="InputType.Password"
-                          Variant="Variant.Text"
-                          Class="auth-input"
-                          Underline="false"
-                          Immediate="true" />
+        <div class="auth-field">
+            <label class="auth-label">Пароль:</label>
+            <input class="auth-input" type="password" @bind="password" placeholder="Пароль" />
         </div>
 
-        <MudText Class="auth-message">
-            @errorMessage
-        </MudText>
+        <div class="auth-message">@errorMessage</div>
 
-        <MudButton Class="auth-button"
-                   Variant="Variant.Filled"
-                   DisableElevation="true"
-                   OnClick="LoginUser">
+        <button class="auth-button" @onclick="LoginUser" type="button">
             Войти
-        </MudButton>
+        </button>
 
-        <MudText Class="auth-footer-text">
-            Еще нет аккаунта?
+        <div class="auth-footer-text">
+            <span class="auth-footer-question">Еще нет аккаунта?</span>
             <a href="/register">Зарегистрироваться</a>
-        </MudText>
-    </MudPaper>
-</MudContainer>
+        </div>
+    </div>
+</div>
 
 @code {
-    private LoginRequestDto model = new();
-    private string errorMessage = "Заполните все поля!";
+    private string login = string.Empty;
+    private string password = string.Empty;
+    private string errorMessage = string.Empty;
 
     private async Task LoginUser()
     {
-        if (string.IsNullOrWhiteSpace(model.Login) || string.IsNullOrWhiteSpace(model.Password))
+        if (string.IsNullOrWhiteSpace(login) || string.IsNullOrWhiteSpace(password))
         {
             errorMessage = "Заполните все поля!";
             return;
         }
 
-        var result = await AuthService.Login(model);
+        errorMessage = string.Empty;
+
+        var result = await AuthService.Login(new GuessWord.Shared.Requests.LoginRequestDto
+        {
+            Login = login,
+            Password = password
+        });
 
         if (result is null)
         {
@@ -67,7 +56,6 @@
             return;
         }
 
-        errorMessage = string.Empty;
         Navigation.NavigateTo("/");
     }
 }

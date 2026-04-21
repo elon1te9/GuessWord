@@ -36,6 +36,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowBlazor",
+        policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -48,6 +54,8 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseCors("AllowBlazor");
 
 app.MapControllers();
 

@@ -1,74 +1,63 @@
 ﻿@page "/register"
-@layout MainLayout
-@using GuessWord.Shared.Requests
 @inject GuessWord.Client.Services.AuthService AuthService
 @inject NavigationManager Navigation
 
-<MudContainer MaxWidth="MaxWidth.False" Class="auth-page-container">
-    <MudPaper Class="auth-card register-card" Elevation="0">
-        <MudText Typo="Typo.h3" Class="auth-title">
-            Регистрация
-        </MudText>
+<div class="auth-page">
+    <div class="auth-card">
+        <div class="auth-title">Регистрация</div>
 
-        <div class="auth-field-block">
-            <MudText Class="auth-label">Логин:</MudText>
-            <MudTextField @bind-Value="model.Login"
-                          Variant="Variant.Text"
-                          Class="auth-input"
-                          Underline="false"
-                          Immediate="true" />
+        <div class="auth-field">
+            <label class="auth-label">Имя:</label>
+            <input class="auth-input" @bind="name" placeholder="Имя" />
         </div>
 
-        <div class="auth-field-block">
-            <MudText Class="auth-label">Имя:</MudText>
-            <MudTextField @bind-Value="model.Name"
-                          Variant="Variant.Text"
-                          Class="auth-input"
-                          Underline="false"
-                          Immediate="true" />
+        <div class="auth-field">
+            <label class="auth-label">Логин:</label>
+            <input class="auth-input" @bind="login" placeholder="Логин" />
         </div>
 
-        <div class="auth-field-block">
-            <MudText Class="auth-label">Пароль:</MudText>
-            <MudTextField @bind-Value="model.Password"
-                          InputType="InputType.Password"
-                          Variant="Variant.Text"
-                          Class="auth-input"
-                          Underline="false"
-                          Immediate="true" />
+        <div class="auth-field">
+            <label class="auth-label">Пароль:</label>
+            <input class="auth-input" type="password" @bind="password" placeholder="Пароль" />
         </div>
 
-        <MudText Class="auth-message">
-            @errorMessage
-        </MudText>
+        <div class="auth-message">@errorMessage</div>
 
-        <MudButton Class="auth-button"
-                   Variant="Variant.Filled"
-                   DisableElevation="true"
-                   OnClick="RegisterUser">
+        <button class="auth-button" @onclick="RegisterUser" type="button">
             Зарегистрироваться
-        </MudButton>
+        </button>
 
-        <MudText Class="auth-footer-text">
-            Уже есть аккаунт?
+        <div class="auth-footer-text">
+            <span class="auth-footer-question">Уже есть аккаунт?</span>
             <a href="/login">Войти</a>
-        </MudText>
-    </MudPaper>
-</MudContainer>
+        </div>
+    </div>
+</div>
 
 @code {
-    private RegisterRequestDto model = new();
-    private string errorMessage = "Заполните все поля!";
+    private string name = string.Empty;
+    private string login = string.Empty;
+    private string password = string.Empty;
+    private string errorMessage = string.Empty;
 
     private async Task RegisterUser()
     {
-        if (string.IsNullOrWhiteSpace(model.Login) || string.IsNullOrWhiteSpace(model.Password))
+        if (string.IsNullOrWhiteSpace(name) ||
+            string.IsNullOrWhiteSpace(login) ||
+            string.IsNullOrWhiteSpace(password))
         {
             errorMessage = "Заполните все поля!";
             return;
         }
 
-        var result = await AuthService.Register(model);
+        errorMessage = string.Empty;
+
+        var result = await AuthService.Register(new GuessWord.Shared.Requests.RegisterRequestDto
+        {
+            Name = name,
+            Login = login,
+            Password = password
+        });
 
         if (result is null)
         {
@@ -76,7 +65,6 @@
             return;
         }
 
-        errorMessage = string.Empty;
         Navigation.NavigateTo("/");
     }
 }

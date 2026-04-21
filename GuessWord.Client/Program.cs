@@ -13,7 +13,7 @@ builder.Services.AddScoped(sp => new HttpClient
     BaseAddress = new Uri("https://localhost:7172/")
 });
 
-builder.Services.AddMudServices();
+//builder.Services.AddMudServices();
 
 builder.Services.AddScoped<ApiRequestService>();
 builder.Services.AddScoped<AuthService>();

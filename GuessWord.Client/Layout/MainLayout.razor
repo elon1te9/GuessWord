@@ -1,8 +1,17 @@
 ﻿@inherits LayoutComponentBase
 
-<MudLayout Class="app-layout">
-    <MudMainContent Class="main-content-area">
+<div class="page">
+    <div class="layout-shell">
         <TopNav />
-        @Body
-    </MudMainContent>
-</MudLayout>
+
+        <div class="page-body">
+            @Body
+        </div>
+
+        <div class="footer-wrap">
+            <div class="footer">
+                GuessWord | Играй, угадывай, побеждай
+            </div>
+        </div>
+    </div>
+</div>
