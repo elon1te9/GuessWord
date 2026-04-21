@@ -1,24 +1,19 @@
-﻿@inject NavigationManager Nav
+﻿@implements IDisposable
+@inject NavigationManager Nav
+@inject GuessWord.Client.Services.UserStateService UserState
 
 <div class="topbar">
     <div class="topbar-left">
+        @foreach (var item in NavItems)
+        {
+            <button class="@GetNavButtonClass(item)" @onclick='() => Go(item.Url)'>
+                <i class="@item.Icon"></i>
+            </button>
+        }
 
-        <button class="nav-btn @(IsActive("/") ? "active" : "")" @onclick='() => Go("/")'>
-            <i class="bi bi-house"></i>
-        </button>
-
-        <button class="nav-btn @(IsActive("/game") ? "active" : "")" @onclick='() => Go("/game")'>
-            <i class="bi bi-controller"></i>
-        </button>
-
-        <button class="nav-btn @(IsActive("/leaderboard") ? "active" : "")" @onclick='() => Go("/leaderboard")'>
-            <i class="bi bi-bar-chart"></i>
-        </button>
-
-        <button class="nav-btn @(IsActive("/login") ? "active" : "")" @onclick='() => Go("/login")'>
+        <button class="@GetProfileButtonClass()" @onclick='GoToProfileOrLogin'>
             <i class="bi bi-person"></i>
         </button>
-
     </div>
 
     <div class="logo" @onclick='() => Go("/")'>
@@ -27,12 +22,64 @@
 </div>
 
 @code {
-    void Go(string url) => Nav.NavigateTo(url);
+    private readonly List<NavItem> NavItems =
+    [
+        new("/", "bi bi-house"),
+        new("/game", "bi bi-controller"),
+        new("/leaderboard", "bi bi-bar-chart")
+    ];
 
-    bool IsActive(string url)
+    private string ProfileOrLoginUrl => UserState.IsAuthorized ? "/profile" : "/login";
+
+    protected override void OnInitialized()
     {
-        var current = "/" + Nav.ToBaseRelativePath(Nav.Uri).Trim('/');
-        if (current == "//") current = "/";
-        return current == url;
+        UserState.OnChange += HandleUserStateChanged;
     }
+
+    private void HandleUserStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void Go(string url)
+    {
+        Nav.NavigateTo(url);
+    }
+
+    private void GoToProfileOrLogin()
+    {
+        Nav.NavigateTo(ProfileOrLoginUrl);
+    }
+
+    private string GetNavButtonClass(NavItem item)
+    {
+        return IsActive(item.Url) ? "nav-btn active" : "nav-btn";
+    }
+
+    private string GetProfileButtonClass()
+    {
+        return IsProfileSectionActive() ? "nav-btn active" : "nav-btn";
+    }
+
+    private bool IsProfileSectionActive()
+    {
+        return IsActive("/login") || IsActive("/profile");
+    }
+
+    private bool IsActive(string url)
+    {
+        var relativePath = Nav.ToBaseRelativePath(Nav.Uri).Trim('/');
+        var current = string.IsNullOrEmpty(relativePath) ? "/" : "/" + relativePath;
+
+        return url == "/"
+            ? current == "/"
+            : current.StartsWith(url, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void Dispose()
+    {
+        UserState.OnChange -= HandleUserStateChanged;
+    }
+
+    private sealed record NavItem(string Url, string Icon);
 }
