@@ -7,9 +7,9 @@ namespace GuessWord.Api.Controllers;
 [Route("api/[controller]")]
 public class DictionaryController : ControllerBase
 {
-    private readonly DictionaryService _dictionaryService;
+    private readonly IDictionaryService _dictionaryService;
 
-    public DictionaryController(DictionaryService dictionaryService)
+    public DictionaryController(IDictionaryService dictionaryService)
     {
         _dictionaryService = dictionaryService;
     }

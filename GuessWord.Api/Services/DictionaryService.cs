@@ -1,12 +1,12 @@
 ﻿namespace GuessWord.Api.Services;
 
-public class DictionaryService
+public class IDictionaryService
 {
     private readonly HashSet<string> _allWords;
     private readonly List<string> _secretWords;
     private readonly Random _random = new();
 
-    public DictionaryService(IWebHostEnvironment environment)
+    public IDictionaryService(IWebHostEnvironment environment)
     {
         var allWordsPath = Path.Combine(environment.ContentRootPath, "Resources", "all-words.txt");
         var secretWordsPath = Path.Combine(environment.ContentRootPath, "Resources", "secret-words.txt");
