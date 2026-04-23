@@ -1,5 +1,5 @@
 ﻿using GuessWord.Api.Interfaces;
-using GuessWord.Api.Models;
+using GuessWord.Shared.Requests;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -19,15 +19,40 @@ namespace GuessWord.Api.Controllers
         }
 
         [HttpPost("single/start")]
-        public async Task<IActionResult> StartSingleGame(int userId)
+        public async Task<IActionResult> StartSingleGame()
         {
-            return await _gameService.StartSingleGame(userId);
+            var userId = GetUserId();
+            var result = await _gameService.StartSingleGameAsync(userId);
+            return Ok(result);
         }
 
         [HttpGet("single/current")]
-        public async Task<IActionResult> GetCurrentSingleGame(int userId)
+        public async Task<IActionResult> GetCurrentSingleGame()
         {
-            return await _gameService.GetCurrentSingleGame(userId);
+            var userId = GetUserId();
+            var result = await _gameService.GetCurrentSingleGameAsync(userId);
+            return Ok(result);
+        }
+
+        [HttpPost("single/guess")]
+        public async Task<IActionResult> SubmitGuess(SubmitGuessRequestDto request)
+        {
+            if (request.GameId <= 0 || string.IsNullOrWhiteSpace(request.Word))
+                return BadRequest("Некорректный запрос.");
+
+            var userId = GetUserId();
+            var result = await _gameService.SubmitGuessAsync(userId, request);
+            return Ok(result);
+        }
+
+        private int GetUserId()
+        {
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(claim) || !int.TryParse(claim, out var userId))
+                throw new Exception("Пользователь не авторизован.");
+
+            return userId;
         }
     }
 }

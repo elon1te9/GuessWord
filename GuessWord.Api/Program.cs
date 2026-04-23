@@ -4,6 +4,7 @@ using GuessWord.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Pgvector.EntityFrameworkCore;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,15 +12,19 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddMemoryCache();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")), ServiceLifetime.Scoped);
-
-builder.Services.AddSingleton<IDictionaryService>();
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        o => o.UseVector()),
+    ServiceLifetime.Scoped);
 
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IGameService, GameService>();
+builder.Services.AddScoped<DictionaryImportService>();
+builder.Services.AddScoped<IRankService, RankService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -59,5 +64,14 @@ app.UseAuthorization();
 app.UseCors("AllowBlazor");
 
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await context.Database.MigrateAsync();
+
+    var importer = scope.ServiceProvider.GetRequiredService<DictionaryImportService>();
+    await importer.ImportAsync();
+}
 
 app.Run();

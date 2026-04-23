@@ -1,5 +1,6 @@
-﻿using GuessWord.Api.Services;
+using GuessWord.Api.Data;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace GuessWord.Api.Controllers;
 
@@ -7,34 +8,50 @@ namespace GuessWord.Api.Controllers;
 [Route("api/[controller]")]
 public class DictionaryController : ControllerBase
 {
-    private readonly IDictionaryService _dictionaryService;
+    private readonly AppDbContext _context;
 
-    public DictionaryController(IDictionaryService dictionaryService)
+    public DictionaryController(AppDbContext context)
     {
-        _dictionaryService = dictionaryService;
+        _context = context;
     }
 
     [HttpGet("exists")]
-    public IActionResult Exists([FromQuery] string word)
+    public async Task<IActionResult> Exists([FromQuery] string word)
     {
-        var exists = _dictionaryService.WordExists(word);
+        if (string.IsNullOrWhiteSpace(word))
+            return Ok(false);
+
+        var normalizedWord = word.Trim().ToLower();
+        var exists = await _context.Words
+            .AsNoTracking()
+            .AnyAsync(x => x.Text == normalizedWord);
+
         return Ok(exists);
     }
 
     [HttpGet("random-secret")]
-    public IActionResult GetRandomSecretWord()
+    public async Task<IActionResult> GetRandomSecretWord()
     {
-        var word = _dictionaryService.GetRandomSecretWord();
+        var word = await _context.Words
+            .AsNoTracking()
+            .Where(x => x.CanBeSecret)
+            .OrderBy(x => Guid.NewGuid())
+            .Select(x => x.Text)
+            .FirstOrDefaultAsync();
+
+        if (word is null)
+            return NotFound("Секретные слова не найдены.");
+
         return Ok(word);
     }
 
     [HttpGet("stats")]
-    public IActionResult GetStats()
+    public async Task<IActionResult> GetStats()
     {
         var result = new
         {
-            AllWordsCount = _dictionaryService.GetAllWordsCount(),
-            SecretWordsCount = _dictionaryService.GetSecretWordsCount()
+            AllWordsCount = await _context.Words.AsNoTracking().CountAsync(),
+            SecretWordsCount = await _context.Words.AsNoTracking().CountAsync(x => x.CanBeSecret)
         };
 
         return Ok(result);

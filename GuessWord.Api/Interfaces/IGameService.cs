@@ -1,11 +1,13 @@
-﻿using GuessWord.Shared.Responses;
+﻿using GuessWord.Shared.Requests;
+using GuessWord.Shared.Responses;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GuessWord.Api.Interfaces
 {
     public interface IGameService
     {
-        Task<IActionResult> StartSingleGame(int userId);
-        Task<IActionResult> GetCurrentSingleGame(int userId);
+        Task<SingleGameResponseDto> StartSingleGameAsync(int userId);
+        Task<SingleGameResponseDto?> GetCurrentSingleGameAsync(int userId);
+        Task<SingleGameResponseDto> SubmitGuessAsync(int userId, SubmitGuessRequestDto request);
     }
 }

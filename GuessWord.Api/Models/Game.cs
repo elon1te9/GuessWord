@@ -10,7 +10,7 @@ namespace GuessWord.Api.Models
         public GameStatus Status { get; set; } = GameStatus.InProgress;
 
         public int SecretWordId { get; set; }
-        public WordDictionary SecretWord { get; set; } = null!;
+        public Word SecretWord { get; set; } = null!;
 
         public int? WinnerUserId { get; set; }
         public User? WinnerUser { get; set; }
