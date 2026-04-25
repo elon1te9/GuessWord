@@ -1,0 +1,137 @@
+@page "/history"
+@implements IDisposable
+@inject NavigationManager Navigation
+@inject GuessWord.Client.Services.UserStateService UserState
+
+<PageTitle>История матчей</PageTitle>
+
+<div class="history-page">
+    @if (!UserState.IsAuthorized)
+    {
+        <section class="history-card history-empty-card">
+            <h1 class="history-empty-title">История матчей</h1>
+            <p class="history-empty-text">Войдите в аккаунт, чтобы смотреть историю матчей.</p>
+            <button class="history-login-button" @onclick="NavigateToLogin" type="button">Войти</button>
+        </section>
+    }
+    else
+    {
+        <section class="history-card history-header">
+            <div class="history-header-content">
+                <h1 class="history-title">История матчей</h1>
+                <p class="history-subtitle">Последние игры и результаты</p>
+            </div>
+
+            <div class="history-header-actions">
+                <button class="history-filter-button" @onclick="CycleFilter" type="button">
+                    Фильтр: @FilterLabel
+                </button>
+            </div>
+        </section>
+
+        @if (FilteredMatches.Count == 0)
+        {
+            <p class="history-empty-result">Матчи не найдены.</p>
+        }
+        else
+        {
+            <div class="history-table-wrap">
+                <div class="history-table">
+                    <div class="history-table-header">
+                        <div>Дата</div>
+                        <div>Тип игры</div>
+                        <div>Результат</div>
+                        <div>Попытки</div>
+                        <div>Слово</div>
+                        <div>Соперник</div>
+                    </div>
+
+                    <div class="history-table-body">
+                        @foreach (var match in FilteredMatches)
+                        {
+                            <div class="history-row">
+                                <div>@match.Date</div>
+                                <div>@match.GameType</div>
+                                <div>@match.Result</div>
+                                <div>@match.Attempts</div>
+                                <div>@match.Word</div>
+                                <div>@match.Opponent</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private MatchFilter _selectedFilter = MatchFilter.All;
+
+    private readonly List<HistoryMatch> _matches =
+    [
+        new("18.04.26", "Сингл", MatchFilter.Single, "Победа", "5", "УДАЧА", "-"),
+        new("17.04.26", "Мультиплеер", MatchFilter.Multiplayer, "Победа", "6", "СЛОВО", "Player2"),
+        new("16.04.26", "Сингл", MatchFilter.Single, "Поражение", "10", "ИГРА", "-"),
+        new("15.04.26", "Мультиплеер", MatchFilter.Multiplayer, "Поражение", "7", "ДРУГ", "Player2"),
+        new("14.04.26", "Сингл", MatchFilter.Single, "Победа", "4", "ПОБЕДА", "-"),
+        new("13.04.26", "Сингл", MatchFilter.Single, "Победа", "6", "ПОЛЕ", "-")
+    ];
+
+    private List<HistoryMatch> FilteredMatches => _matches
+        .Where(match => _selectedFilter == MatchFilter.All || match.Filter == _selectedFilter)
+        .ToList();
+
+    private string FilterLabel => _selectedFilter switch
+    {
+        MatchFilter.Single => "сингл",
+        MatchFilter.Multiplayer => "мультиплеер",
+        _ => "все"
+    };
+
+    protected override void OnInitialized()
+    {
+        UserState.OnChange += HandleUserStateChanged;
+    }
+
+    private void HandleUserStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void NavigateToLogin()
+    {
+        Navigation.NavigateTo("/login");
+    }
+
+    private void CycleFilter()
+    {
+        _selectedFilter = _selectedFilter switch
+        {
+            MatchFilter.All => MatchFilter.Single,
+            MatchFilter.Single => MatchFilter.Multiplayer,
+            _ => MatchFilter.All
+        };
+    }
+
+    public void Dispose()
+    {
+        UserState.OnChange -= HandleUserStateChanged;
+    }
+
+    private enum MatchFilter
+    {
+        All,
+        Single,
+        Multiplayer
+    }
+
+    private sealed record HistoryMatch(
+        string Date,
+        string GameType,
+        MatchFilter Filter,
+        string Result,
+        string Attempts,
+        string Word,
+        string Opponent);
+}

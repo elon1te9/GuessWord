@@ -1,0 +1,429 @@
+@page "/game/single"
+@implements IDisposable
+@using GuessWord.Shared.Enums
+@using GuessWord.Shared.Responses
+@inject NavigationManager Navigation
+@inject GuessWord.Client.Services.UserStateService UserState
+@inject GuessWord.Client.Services.GameService GameService
+
+<PageTitle>Одиночная игра</PageTitle>
+
+<div class="single-game-page">
+    @if (isLoading)
+    {
+        <p class="single-game-message">Загрузка...</p>
+    }
+    else if (!UserState.IsAuthorized)
+    {
+        <section class="single-game-card single-game-empty-card">
+            <h1 class="single-game-title">Одиночная игра</h1>
+            <p class="single-game-message">Войдите в аккаунт, чтобы играть.</p>
+            <button class="single-game-button single-game-button-light" @onclick="NavigateToLogin" type="button">
+                Войти
+            </button>
+        </section>
+    }
+    else if (currentGame is null)
+    {
+        <section class="single-game-card single-game-empty-card">
+            <h1 class="single-game-title">Нет активной игры</h1>
+            <p class="single-game-message">Начните новую одиночную игру.</p>
+
+            <button class="single-game-button single-game-button-dark"
+                    @onclick="StartNewGameAsync"
+                    disabled="@isStartingGame"
+                    type="button">
+                @(isStartingGame ? "Запуск..." : "Начать игру")
+            </button>
+
+            @if (!string.IsNullOrWhiteSpace(pageMessage))
+            {
+                <p class="single-game-message">@pageMessage</p>
+            }
+        </section>
+    }
+    else
+    {
+        <section class="single-game-card single-game-header">
+            <div class="single-game-header-main">
+                <div>
+                    <h1 class="single-game-title">Одиночная игра</h1>
+                    <p class="single-game-subtitle">Вводи слова и ориентируйся на ранг</p>
+                </div>
+
+                <div class="single-game-header-actions">
+                    <div class="single-game-meta">Попытки: @currentGame.AttemptsCount</div>
+                    <button class="single-game-button single-game-button-danger"
+                            @onclick="GiveUpAsync"
+                            disabled="@(isSubmitting || currentGame.Status == GameStatus.Finished)"
+                            type="button">
+                        Сдаться
+                    </button>
+                    <button class="single-game-button single-game-button-light" @onclick="NavigateToLobby" type="button">
+                        В лобби
+                    </button>
+                </div>
+            </div>
+
+            <form class="single-game-form" @onsubmit="SubmitGuessAsync" @onsubmit:preventDefault="true">
+                <input class="single-game-input"
+                       @bind="guessWord"
+                       @bind:event="oninput"
+                       disabled="@(isSubmitting || currentGame.Status == GameStatus.Finished)"
+                       placeholder="Введите слово" />
+
+                <button class="single-game-button single-game-button-dark"
+                        disabled="@(isSubmitting || currentGame.Status == GameStatus.Finished)"
+                        type="submit">
+                    @(isSubmitting ? "Проверка..." : "Проверить")
+                </button>
+            </form>
+
+            @if (!string.IsNullOrWhiteSpace(pageMessage) && pageMessage != "Это слово уже было введено.")
+            {
+                <p class="single-game-message">@pageMessage</p>
+            }
+        </section>
+
+        @if (lastSubmittedAttempt is not null || showNotFoundCard || displayAttempts.Count > 0)
+        {
+            <section class="single-game-card single-game-attempts-card">
+                @if (lastSubmittedAttempt is not null)
+                {
+                    <div class="single-game-word-row single-game-word-row-featured single-game-word-row-active @GetAttemptClass(lastSubmittedAttempt)">
+                        <div class="single-game-word-fill" style="--word-fill-width:@GetFillWidth(lastSubmittedAttempt);"></div>
+                        <div class="single-game-word-content">
+                            <div class="single-game-word-text">@lastSubmittedAttempt.Word</div>
+                            <div class="single-game-word-rank">@lastSubmittedAttempt.Rank</div>
+                        </div>
+                    </div>
+                }
+                else if (showNotFoundCard)
+                {
+                    <div class="single-game-word-not-found">
+                        такого слова не найдено
+                    </div>
+                }
+
+                @if (displayAttempts.Count > 0)
+                {
+                    <div class="single-game-word-table">
+                        @foreach (var attempt in displayAttempts)
+                        {
+                            <div class="single-game-word-row @GetAttemptClass(attempt) @(IsLastSubmittedWord(attempt) ? "single-game-word-row-active" : "")">
+                                <div class="single-game-word-fill" style="--word-fill-width:@GetFillWidth(attempt);"></div>
+                                <div class="single-game-word-content">
+                                    <div class="single-game-word-text">@attempt.Word</div>
+                                    <div class="single-game-word-rank">@attempt.Rank</div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+        }
+    }
+</div>
+
+@if (currentGame is not null && currentGame.Status == GameStatus.Finished)
+{
+    <div class="single-game-result-overlay">
+        <div class="single-game-result-modal">
+            <div class="single-game-result-pill">
+                @(currentGame.PlayerResult == GamePlayerResult.Won ? "Раунд завершён" : "Игра завершена")
+            </div>
+
+            <h2 class="single-game-result-title">@GetResultTitle()</h2>
+            <p class="single-game-result-text">@GetResultText()</p>
+
+            <div class="single-game-result-secret">
+                <div class="single-game-result-secret-label">Загаданное слово</div>
+                <div class="single-game-result-secret-word">@currentGame.SecretWord</div>
+            </div>
+
+            <div class="single-game-result-stats">
+                <div class="single-game-result-stat">
+                    <div class="single-game-result-stat-label">Попытки</div>
+                    <div class="single-game-result-stat-value">@currentGame.AttemptsCount</div>
+                </div>
+
+                <div class="single-game-result-stat">
+                    <div class="single-game-result-stat-label">Результат</div>
+                    <div class="single-game-result-stat-value">@GetResultValue()</div>
+                </div>
+            </div>
+
+            <div class="single-game-result-actions">
+                <button class="single-game-button single-game-button-light"
+                        @onclick="StartNewGameAsync"
+                        disabled="@isStartingGame"
+                        type="button">
+                    @(isStartingGame ? "Запуск..." : "Новая игра")
+                </button>
+                <button class="single-game-button single-game-button-dark" @onclick="NavigateToLobby" type="button">
+                    В лобби
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private bool isSubmitting;
+    private bool isStartingGame;
+    private bool showNotFoundCard;
+    private string guessWord = string.Empty;
+    private string pageMessage = string.Empty;
+    private SingleGameResponseDto? currentGame;
+    private GameAttemptResponseDto? lastSubmittedAttempt;
+
+    private List<GameAttemptResponseDto> displayAttempts => BuildDisplayAttempts();
+
+    protected override async Task OnInitializedAsync()
+    {
+        UserState.OnChange += HandleUserStateChanged;
+        await LoadCurrentGameAsync();
+    }
+
+    private void HandleUserStateChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await LoadCurrentGameAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task LoadCurrentGameAsync()
+    {
+        pageMessage = string.Empty;
+        guessWord = string.Empty;
+        lastSubmittedAttempt = null;
+        showNotFoundCard = false;
+
+        if (!UserState.IsAuthorized)
+        {
+            currentGame = null;
+            isLoading = false;
+            return;
+        }
+
+        isLoading = true;
+        currentGame = await GameService.GetCurrentSingleGameAsync();
+        isLoading = false;
+    }
+
+    private void NavigateToLogin()
+    {
+        Navigation.NavigateTo("/login");
+    }
+
+    private void NavigateToLobby()
+    {
+        Navigation.NavigateTo("/game");
+    }
+
+    private async Task StartNewGameAsync()
+    {
+        if (isStartingGame || !UserState.IsAuthorized)
+            return;
+
+        isStartingGame = true;
+        pageMessage = string.Empty;
+
+        var startedGame = await GameService.StartSingleGameAsync();
+
+        isStartingGame = false;
+
+        if (startedGame is null)
+        {
+            pageMessage = "Не удалось начать игру. Попробуйте ещё раз.";
+            return;
+        }
+
+        currentGame = startedGame;
+        lastSubmittedAttempt = null;
+        showNotFoundCard = false;
+        guessWord = string.Empty;
+    }
+
+    private async Task SubmitGuessAsync()
+    {
+        if (currentGame is null || isSubmitting || currentGame.Status == GameStatus.Finished)
+            return;
+
+        var trimmedWord = guessWord.Trim();
+
+        if (string.IsNullOrWhiteSpace(trimmedWord))
+        {
+            pageMessage = "Введите слово.";
+            return;
+        }
+
+        isSubmitting = true;
+        pageMessage = string.Empty;
+
+        var updatedGame = await GameService.SubmitGuessAsync(currentGame.GameId, trimmedWord);
+
+        isSubmitting = false;
+
+        if (updatedGame is null)
+        {
+            pageMessage = "Не удалось отправить слово.";
+            return;
+        }
+
+        currentGame = updatedGame;
+        guessWord = string.Empty;
+
+        var latestAttempt = updatedGame.Attempts
+            .OrderByDescending(attempt => attempt.CreatedAt)
+            .FirstOrDefault();
+
+        if (latestAttempt is null)
+        {
+            lastSubmittedAttempt = null;
+            showNotFoundCard = false;
+            return;
+        }
+
+        if (!latestAttempt.IsValid)
+        {
+            lastSubmittedAttempt = null;
+            showNotFoundCard = true;
+            pageMessage = string.Empty;
+            return;
+        }
+
+        if (latestAttempt.IsRepeated)
+        {
+            lastSubmittedAttempt = updatedGame.Attempts
+                .Where(attempt => attempt.IsValid && attempt.Rank.HasValue)
+                .GroupBy(attempt => attempt.Word.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Where(group => string.Equals(group.Key, latestAttempt.Word.Trim(), StringComparison.OrdinalIgnoreCase))
+                .Select(group => group.OrderBy(attempt => attempt.Rank).ThenBy(attempt => attempt.CreatedAt).First())
+                .FirstOrDefault();
+
+            showNotFoundCard = false;
+            pageMessage = "Это слово уже было введено.";
+            return;
+        }
+
+        lastSubmittedAttempt = latestAttempt;
+        showNotFoundCard = false;
+        pageMessage = string.Empty;
+    }
+
+    private async Task GiveUpAsync()
+    {
+        if (currentGame is null || isSubmitting || currentGame.Status == GameStatus.Finished)
+            return;
+
+        isSubmitting = true;
+        pageMessage = string.Empty;
+
+        var updatedGame = await GameService.GiveUpSingleGameAsync(currentGame.GameId);
+
+        isSubmitting = false;
+
+        if (updatedGame is null)
+        {
+            pageMessage = "Не удалось завершить игру.";
+            return;
+        }
+
+        currentGame = updatedGame;
+    }
+
+    private List<GameAttemptResponseDto> BuildDisplayAttempts()
+    {
+        if (currentGame is null)
+            return [];
+
+        return currentGame.Attempts
+            .Where(attempt => attempt.IsValid && attempt.Rank.HasValue)
+            .GroupBy(attempt => attempt.Word.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.OrderBy(attempt => attempt.Rank).ThenBy(attempt => attempt.CreatedAt).First())
+            .OrderBy(attempt => attempt.Rank)
+            .ThenBy(attempt => attempt.Word)
+            .ToList();
+    }
+
+    private static string GetAttemptClass(GameAttemptResponseDto attempt)
+    {
+        if (!attempt.IsValid || !attempt.Rank.HasValue)
+            return "single-game-attempt-invalid";
+
+        return attempt.Rank.Value switch
+        {
+            <= 100 => "single-game-attempt-hot",
+            <= 1000 => "single-game-attempt-warm",
+            <= 5000 => "single-game-attempt-medium",
+            <= 15000 => "single-game-attempt-cold",
+            _ => "single-game-attempt-cold"
+        };
+    }
+
+    private static string GetFillWidth(GameAttemptResponseDto attempt)
+    {
+        if (!attempt.Rank.HasValue)
+            return "0%";
+
+        var rank = Math.Max(attempt.Rank.Value, 1);
+        var width = 100 - Math.Log10(rank) * 17.5;
+        var clampedWidth = Math.Clamp(width, 4d, 100d);
+
+        return $"{Math.Round(clampedWidth)}%";
+    }
+
+    private bool IsLastSubmittedWord(GameAttemptResponseDto attempt)
+    {
+        return lastSubmittedAttempt is not null &&
+               string.Equals(attempt.Word, lastSubmittedAttempt.Word, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string GetResultTitle()
+    {
+        if (currentGame is null)
+            return "Игра завершена";
+
+        return currentGame.PlayerResult switch
+        {
+            GamePlayerResult.Won => "Победа!",
+            GamePlayerResult.GaveUp => "Вы сдались",
+            _ => "Игра завершена"
+        };
+    }
+
+    private string GetResultText()
+    {
+        if (currentGame is null)
+            return string.Empty;
+
+        return currentGame.PlayerResult switch
+        {
+            GamePlayerResult.Won => "Ты угадал слово",
+            GamePlayerResult.GaveUp => "Игра завершена",
+            _ => "Раунд завершён"
+        };
+    }
+
+    private string GetResultValue()
+    {
+        if (currentGame is null)
+            return string.Empty;
+
+        return currentGame.PlayerResult switch
+        {
+            GamePlayerResult.Won => "Победа",
+            GamePlayerResult.GaveUp => "Поражение",
+            _ => "Завершена"
+        };
+    }
+
+    public void Dispose()
+    {
+        UserState.OnChange -= HandleUserStateChanged;
+    }
+}

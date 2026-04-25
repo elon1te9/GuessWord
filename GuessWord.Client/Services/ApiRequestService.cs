@@ -40,6 +40,23 @@ public class ApiRequestService
         }
     }
 
+    public async Task<TResponse?> PostAsync<TResponse>(string url)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync(url, content: null);
+
+            if (!response.IsSuccessStatusCode)
+                return default;
+
+            return await response.Content.ReadFromJsonAsync<TResponse>();
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
     public async Task<bool> PostAsync<TRequest>(string url, TRequest data)
     {
         try

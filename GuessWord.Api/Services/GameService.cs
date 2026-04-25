@@ -146,6 +146,38 @@ namespace GuessWord.Api.Services
             return await BuildGameResponseAsync(game.Id, userId);
         }
 
+        public async Task<SingleGameResponseDto> GiveUpSingleGameAsync(int userId, int gameId)
+        {
+            var game = await _context.Games
+                .Include(g => g.Players)
+                .Include(g => g.Attempts)
+                .Include(g => g.SecretWord)
+                .FirstOrDefaultAsync(g => g.Id == gameId);
+
+            if (game is null)
+                throw new Exception("Игра не найдена.");
+
+            if (game.Mode != GameMode.Single)
+                throw new Exception("Неверный режим игры.");
+
+            if (game.Status == GameStatus.Finished)
+                throw new Exception("Игра уже завершена.");
+
+            var player = game.Players.FirstOrDefault(p => p.UserId == userId);
+            if (player is null)
+                throw new Exception("Игрок не найден в этой игре.");
+
+            game.Status = GameStatus.Finished;
+            game.FinishedAt = DateTime.UtcNow;
+            game.WinnerUserId = null;
+
+            player.Result = GamePlayerResult.GaveUp;
+
+            await _context.SaveChangesAsync();
+
+            return await BuildGameResponseAsync(game.Id, userId);
+        }
+
         private async Task<Game?> GetCurrentGameEntityAsync(int userId)
         {
             var gamePlayer = await _context.GamePlayers

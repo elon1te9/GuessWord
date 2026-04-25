@@ -45,6 +45,17 @@ namespace GuessWord.Api.Controllers
             return Ok(result);
         }
 
+        [HttpPost("single/{gameId:int}/giveup")]
+        public async Task<IActionResult> GiveUpSingleGame(int gameId)
+        {
+            if (gameId <= 0)
+                return BadRequest("Некорректный gameId.");
+
+            var userId = GetUserId();
+            var result = await _gameService.GiveUpSingleGameAsync(userId, gameId);
+            return Ok(result);
+        }
+
         private int GetUserId()
         {
             var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

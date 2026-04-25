@@ -9,5 +9,6 @@ namespace GuessWord.Api.Interfaces
         Task<SingleGameResponseDto> StartSingleGameAsync(int userId);
         Task<SingleGameResponseDto?> GetCurrentSingleGameAsync(int userId);
         Task<SingleGameResponseDto> SubmitGuessAsync(int userId, SubmitGuessRequestDto request);
+        Task<SingleGameResponseDto> GiveUpSingleGameAsync(int userId, int gameId);
     }
 }
