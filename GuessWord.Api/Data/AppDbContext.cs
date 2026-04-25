@@ -36,6 +36,11 @@ namespace GuessWord.Api.Data
                 .Property(x => x.Embedding)
                 .HasColumnType("vector(384)");
 
+            modelBuilder.Entity<GamePlayer>()
+                .HasIndex(x => new { x.UserId, x.IsActiveSingleGame })
+                .IsUnique()
+                .HasFilter("\"IsActiveSingleGame\" = true");
+
             modelBuilder.Entity<Game>()
                 .HasOne(g => g.SecretWord)
                 .WithMany(w => w.SecretWordGames)

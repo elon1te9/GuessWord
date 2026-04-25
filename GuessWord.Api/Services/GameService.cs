@@ -5,11 +5,14 @@ using GuessWord.Shared.Enums;
 using GuessWord.Shared.Requests;
 using GuessWord.Shared.Responses;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace GuessWord.Api.Services
 {
     public class GameService : IGameService
     {
+        private const string ActiveSingleGameIndexName = "IX_GamePlayers_UserId_IsActiveSingleGame";
+
         private readonly AppDbContext _context;
         private readonly IRankService _rankService;
 
@@ -60,14 +63,30 @@ namespace GuessWord.Api.Services
                 Game = game,
                 UserId = userId,
                 AttemptsCount = 0,
-                Result = GamePlayerResult.Playing
+                Result = GamePlayerResult.Playing,
+                IsActiveSingleGame = true
             };
 
             _context.Games.Add(game);
             _context.GamePlayers.Add(gamePlayer);
-            await _context.SaveChangesAsync();
-            await _rankService.PrepareRankingAsync(secretWord.Id);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (IsActiveSingleGameUniqueViolation(ex))
+            {
+                await transaction.RollbackAsync();
+                _context.ChangeTracker.Clear();
+
+                var activeGame = await GetCurrentGameEntityAsync(userId);
+                if (activeGame is not null)
+                    return await BuildGameResponseAsync(activeGame.Id, userId);
+
+                throw;
+            }
+
             await transaction.CommitAsync();
+            await _rankService.PrepareRankingAsync(secretWord.Id);
 
             return await BuildGameResponseAsync(game.Id, userId);
         }
@@ -161,6 +180,7 @@ namespace GuessWord.Api.Services
                 game.WinnerUserId = userId;
                 game.FinishedAt = DateTime.UtcNow;
                 player.Result = GamePlayerResult.Won;
+                player.IsActiveSingleGame = false;
             }
 
             await _context.SaveChangesAsync();
@@ -195,6 +215,7 @@ namespace GuessWord.Api.Services
             game.WinnerUserId = null;
 
             player.Result = GamePlayerResult.GaveUp;
+            player.IsActiveSingleGame = false;
 
             await _context.SaveChangesAsync();
 
@@ -269,6 +290,13 @@ namespace GuessWord.Api.Services
                 LastAttemptWasRepeated = lastAttemptWasRepeated,
                 Attempts = attempts
             };
+        }
+
+        private static bool IsActiveSingleGameUniqueViolation(DbUpdateException exception)
+        {
+            return exception.InnerException is PostgresException postgresException &&
+                   postgresException.SqlState == PostgresErrorCodes.UniqueViolation &&
+                   postgresException.ConstraintName == ActiveSingleGameIndexName;
         }
     }
 }

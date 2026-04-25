@@ -15,5 +15,7 @@ namespace GuessWord.Api.Models
         public GamePlayerResult Result { get; set; } = GamePlayerResult.Playing;
 
         public int AttemptsCount { get; set; } = 0;
+
+        public bool IsActiveSingleGame { get; set; } = false;
     }
 }
