@@ -129,8 +129,7 @@
     private string pageMessage = string.Empty;
     private SingleGameResponseDto? currentGame;
     private GameAttemptResponseDto? lastSubmittedAttempt;
-
-    private List<GameAttemptResponseDto> displayAttempts => BuildDisplayAttempts();
+    private List<GameAttemptResponseDto> displayAttempts = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -157,12 +156,14 @@
         if (!UserState.IsAuthorized)
         {
             currentGame = null;
+            displayAttempts = new();
             isLoading = false;
             return;
         }
 
         isLoading = true;
         currentGame = await GameService.GetCurrentSingleGameAsync();
+        UpdateDisplayAttempts();
         isLoading = false;
     }
 
@@ -195,6 +196,7 @@
         }
 
         currentGame = startedGame;
+        UpdateDisplayAttempts();
         lastSubmittedAttempt = null;
         showNotFoundCard = false;
         guessWord = string.Empty;
@@ -227,6 +229,7 @@
         }
 
         currentGame = updatedGame;
+        UpdateDisplayAttempts();
         guessWord = string.Empty;
 
         var latestAttempt = updatedGame.LastAttempt;
@@ -278,6 +281,12 @@
         }
 
         currentGame = updatedGame;
+        UpdateDisplayAttempts();
+    }
+
+    private void UpdateDisplayAttempts()
+    {
+        displayAttempts = BuildDisplayAttempts();
     }
 
     private List<GameAttemptResponseDto> BuildDisplayAttempts()

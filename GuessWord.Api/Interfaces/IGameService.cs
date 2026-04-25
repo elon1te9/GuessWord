@@ -1,6 +1,5 @@
-﻿using GuessWord.Shared.Requests;
+using GuessWord.Shared.Requests;
 using GuessWord.Shared.Responses;
-using Microsoft.AspNetCore.Mvc;
 
 namespace GuessWord.Api.Interfaces
 {
@@ -10,5 +9,6 @@ namespace GuessWord.Api.Interfaces
         Task<SingleGameResponseDto?> GetCurrentSingleGameAsync(int userId);
         Task<SingleGameResponseDto> SubmitGuessAsync(int userId, SubmitGuessRequestDto request);
         Task<SingleGameResponseDto> GiveUpSingleGameAsync(int userId, int gameId);
+        Task<List<GameHistoryItemResponseDto>> GetHistoryAsync(int userId);
     }
 }

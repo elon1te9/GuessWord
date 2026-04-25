@@ -102,8 +102,6 @@ namespace GuessWord.Api.Services
 
         public async Task<SingleGameResponseDto> SubmitGuessAsync(int userId, SubmitGuessRequestDto request)
         {
-            await using var transaction = await _context.Database.BeginTransactionAsync();
-
             var game = await _context.Games
                 .Include(g => g.Players)
                 .Include(g => g.Attempts)
@@ -131,8 +129,15 @@ namespace GuessWord.Api.Services
                 .AsNoTracking()
                 .FirstOrDefaultAsync(w => w.Text == normalizedWord);
 
+            var existingValidAttempt = await FindExistingValidAttemptAsync(game.Id, userId, normalizedWord);
+
+            if (word is not null && existingValidAttempt is not null)
+                return await BuildGameResponseAsync(game.Id, userId, existingValidAttempt.Id, true);
+
             if (word is null)
             {
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+
                 var invalidAttempt = new GameAttempt
                 {
                     GameId = game.Id,
@@ -149,18 +154,15 @@ namespace GuessWord.Api.Services
                 return await BuildGameResponseAsync(game.Id, userId, invalidAttempt.Id, false);
             }
 
-            var existingValidAttempt = await _context.GameAttempts
-                .AsNoTracking()
-                .FirstOrDefaultAsync(a =>
-                    a.GameId == game.Id &&
-                    a.UserId == userId &&
-                    a.Word == normalizedWord &&
-                    a.IsValid);
-
-            if (existingValidAttempt is not null)
-                return await BuildGameResponseAsync(game.Id, userId, existingValidAttempt.Id, true);
-
             var rank = await _rankService.GetRankAsync(game.SecretWordId, word.Id);
+            await using var validAttemptTransaction = await _context.Database.BeginTransactionAsync();
+
+            existingValidAttempt = await FindExistingValidAttemptAsync(game.Id, userId, normalizedWord);
+            if (existingValidAttempt is not null)
+            {
+                await validAttemptTransaction.RollbackAsync();
+                return await BuildGameResponseAsync(game.Id, userId, existingValidAttempt.Id, true);
+            }
 
             var newAttempt = new GameAttempt
             {
@@ -183,8 +185,23 @@ namespace GuessWord.Api.Services
                 player.IsActiveSingleGame = false;
             }
 
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                await validAttemptTransaction.RollbackAsync();
+                _context.ChangeTracker.Clear();
+
+                existingValidAttempt = await FindExistingValidAttemptAsync(game.Id, userId, normalizedWord);
+                if (existingValidAttempt is not null)
+                    return await BuildGameResponseAsync(game.Id, userId, existingValidAttempt.Id, true);
+
+                throw;
+            }
+
+            await validAttemptTransaction.CommitAsync();
 
             return await BuildGameResponseAsync(game.Id, userId, newAttempt.Id, false);
         }
@@ -222,6 +239,30 @@ namespace GuessWord.Api.Services
             return await BuildGameResponseAsync(game.Id, userId);
         }
 
+        public async Task<List<GameHistoryItemResponseDto>> GetHistoryAsync(int userId)
+        {
+            return await _context.GamePlayers
+                .AsNoTracking()
+                .Where(gp => gp.UserId == userId && gp.Game.Status == GameStatus.Finished)
+                .Include(gp => gp.Game)
+                    .ThenInclude(g => g.SecretWord)
+                .OrderByDescending(gp => gp.Game.FinishedAt ?? gp.Game.CreatedAt)
+                .Select(gp => new GameHistoryItemResponseDto
+                {
+                    Date = gp.Game.FinishedAt ?? gp.Game.CreatedAt,
+                    GameType = gp.Game.Mode == GameMode.Single ? "Сингл" : "Мультиплеер",
+                    Result = gp.Result == GamePlayerResult.Won
+                        ? "Победа"
+                        : gp.Result == GamePlayerResult.GaveUp || gp.Result == GamePlayerResult.Lost
+                            ? "Поражение"
+                            : "Завершена",
+                    AttemptsCount = gp.AttemptsCount,
+                    SecretWord = gp.Game.SecretWord.Text,
+                    OpponentName = "-"
+                })
+                .ToListAsync();
+        }
+
         private async Task<Game?> GetCurrentGameEntityAsync(int userId)
         {
             var gamePlayer = await _context.GamePlayers
@@ -232,6 +273,17 @@ namespace GuessWord.Api.Services
                     gp.Game.Status == GameStatus.InProgress);
 
             return gamePlayer?.Game;
+        }
+
+        private async Task<GameAttempt?> FindExistingValidAttemptAsync(int gameId, int userId, string normalizedWord)
+        {
+            return await _context.GameAttempts
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a =>
+                    a.GameId == gameId &&
+                    a.UserId == userId &&
+                    a.Word == normalizedWord &&
+                    a.IsValid);
         }
 
         private async Task<SingleGameResponseDto> BuildGameResponseAsync(

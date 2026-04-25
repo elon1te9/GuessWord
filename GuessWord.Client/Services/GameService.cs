@@ -37,4 +37,9 @@ public class GameService
     {
         return await _apiRequestService.PostAsync<SingleGameResponseDto>($"api/game/single/{gameId}/giveup");
     }
+
+    public async Task<List<GameHistoryItemResponseDto>?> GetHistoryAsync()
+    {
+        return await _apiRequestService.GetAsync<List<GameHistoryItemResponseDto>>("api/game/history");
+    }
 }

@@ -3,6 +3,7 @@
 @inject NavigationManager Navigation
 @inject GuessWord.Client.Services.UserStateService UserState
 @inject GuessWord.Client.Services.AuthService AuthService
+@inject GuessWord.Client.Services.UserService UserService
 
 <PageTitle>Профиль</PageTitle>
 
@@ -15,7 +16,21 @@
             <button class="profile-login-button" @onclick="NavigateToLogin" type="button">Войти</button>
         </section>
     }
-    else
+    else if (_isLoading)
+    {
+        <section class="profile-card profile-empty-card">
+            <h1 class="profile-empty-title">Профиль</h1>
+            <p class="profile-empty-text">Загрузка...</p>
+        </section>
+    }
+    else if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <section class="profile-card profile-empty-card">
+            <h1 class="profile-empty-title">Профиль</h1>
+            <p class="profile-empty-text">@_errorMessage</p>
+        </section>
+    }
+    else if (_profile is not null)
     {
         <section class="profile-card profile-header">
             <div class="profile-header-content">
@@ -28,17 +43,17 @@
 
         <div class="profile-stats">
             <section class="profile-stat-card">
-                <div class="profile-stat-value">0</div>
+                <div class="profile-stat-value">@_profile.GamesCount</div>
                 <div class="profile-stat-label">Количество игр</div>
             </section>
 
             <section class="profile-stat-card">
-                <div class="profile-stat-value">0</div>
+                <div class="profile-stat-value">@_profile.WinsCount</div>
                 <div class="profile-stat-label">Количество побед</div>
             </section>
 
             <section class="profile-stat-card">
-                <div class="profile-stat-value">0%</div>
+                <div class="profile-stat-value">@_profile.WinRate%</div>
                 <div class="profile-stat-label">Процент побед</div>
             </section>
         </div>
@@ -57,19 +72,45 @@
 </div>
 
 @code {
+    private GuessWord.Shared.Responses.UserProfileResponseDto? _profile;
+    private bool _isLoading;
+    private string? _errorMessage;
+
     private string DisplayName =>
+        !string.IsNullOrWhiteSpace(_profile?.Name) ? _profile.Name :
         !string.IsNullOrWhiteSpace(UserState.Name) ? UserState.Name! :
+        !string.IsNullOrWhiteSpace(_profile?.Login) ? _profile.Login :
         !string.IsNullOrWhiteSpace(UserState.Login) ? UserState.Login! :
         "Пользователь";
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         UserState.OnChange += HandleUserStateChanged;
+        await LoadProfileAsync();
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        _profile = null;
+        _errorMessage = null;
+
+        if (!UserState.IsAuthorized)
+        {
+            _isLoading = false;
+            return;
+        }
+
+        _isLoading = true;
+        StateHasChanged();
+
+        _profile = await UserService.GetProfileAsync();
+        _errorMessage = _profile is null ? "Не удалось загрузить профиль." : null;
+        _isLoading = false;
     }
 
     private void HandleUserStateChanged()
     {
-        InvokeAsync(StateHasChanged);
+        _ = InvokeAsync(LoadProfileAsync);
     }
 
     private void NavigateToLogin()

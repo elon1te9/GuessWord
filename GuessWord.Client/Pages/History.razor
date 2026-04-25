@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject NavigationManager Navigation
 @inject GuessWord.Client.Services.UserStateService UserState
+@inject GuessWord.Client.Services.GameService GameService
 
 <PageTitle>История матчей</PageTitle>
 
@@ -29,7 +30,15 @@
             </div>
         </section>
 
-        @if (FilteredMatches.Count == 0)
+        @if (_isLoading)
+        {
+            <p class="history-empty-result">Загрузка...</p>
+        }
+        else if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <p class="history-empty-result">@_errorMessage</p>
+        }
+        else if (FilteredMatches.Count == 0)
         {
             <p class="history-empty-result">Матчи не найдены.</p>
         }
@@ -50,12 +59,12 @@
                         @foreach (var match in FilteredMatches)
                         {
                             <div class="history-row">
-                                <div>@match.Date</div>
+                                <div>@match.Date.ToLocalTime().ToString("dd.MM.yy")</div>
                                 <div>@match.GameType</div>
                                 <div>@match.Result</div>
-                                <div>@match.Attempts</div>
-                                <div>@match.Word</div>
-                                <div>@match.Opponent</div>
+                                <div>@match.AttemptsCount</div>
+                                <div>@match.SecretWord</div>
+                                <div>@match.OpponentName</div>
                             </div>
                         }
                     </div>
@@ -67,19 +76,12 @@
 
 @code {
     private MatchFilter _selectedFilter = MatchFilter.All;
+    private List<GuessWord.Shared.Responses.GameHistoryItemResponseDto> _matches = [];
+    private bool _isLoading;
+    private string? _errorMessage;
 
-    private readonly List<HistoryMatch> _matches =
-    [
-        new("18.04.26", "Сингл", MatchFilter.Single, "Победа", "5", "УДАЧА", "-"),
-        new("17.04.26", "Мультиплеер", MatchFilter.Multiplayer, "Победа", "6", "СЛОВО", "Player2"),
-        new("16.04.26", "Сингл", MatchFilter.Single, "Поражение", "10", "ИГРА", "-"),
-        new("15.04.26", "Мультиплеер", MatchFilter.Multiplayer, "Поражение", "7", "ДРУГ", "Player2"),
-        new("14.04.26", "Сингл", MatchFilter.Single, "Победа", "4", "ПОБЕДА", "-"),
-        new("13.04.26", "Сингл", MatchFilter.Single, "Победа", "6", "ПОЛЕ", "-")
-    ];
-
-    private List<HistoryMatch> FilteredMatches => _matches
-        .Where(match => _selectedFilter == MatchFilter.All || match.Filter == _selectedFilter)
+    private List<GuessWord.Shared.Responses.GameHistoryItemResponseDto> FilteredMatches => _matches
+        .Where(match => _selectedFilter == MatchFilter.All || MapFilter(match.GameType) == _selectedFilter)
         .ToList();
 
     private string FilterLabel => _selectedFilter switch
@@ -89,14 +91,35 @@
         _ => "все"
     };
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         UserState.OnChange += HandleUserStateChanged;
+        await LoadHistoryAsync();
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        _matches = [];
+        _errorMessage = null;
+
+        if (!UserState.IsAuthorized)
+        {
+            _isLoading = false;
+            return;
+        }
+
+        _isLoading = true;
+        StateHasChanged();
+
+        var history = await GameService.GetHistoryAsync();
+        _matches = history ?? [];
+        _errorMessage = history is null ? "Не удалось загрузить историю матчей." : null;
+        _isLoading = false;
     }
 
     private void HandleUserStateChanged()
     {
-        InvokeAsync(StateHasChanged);
+        _ = InvokeAsync(LoadHistoryAsync);
     }
 
     private void NavigateToLogin()
@@ -114,6 +137,16 @@
         };
     }
 
+    private static MatchFilter MapFilter(string gameType)
+    {
+        return gameType switch
+        {
+            "Сингл" => MatchFilter.Single,
+            "Мультиплеер" => MatchFilter.Multiplayer,
+            _ => MatchFilter.All
+        };
+    }
+
     public void Dispose()
     {
         UserState.OnChange -= HandleUserStateChanged;
@@ -125,13 +158,4 @@
         Single,
         Multiplayer
     }
-
-    private sealed record HistoryMatch(
-        string Date,
-        string GameType,
-        MatchFilter Filter,
-        string Result,
-        string Attempts,
-        string Word,
-        string Opponent);
 }

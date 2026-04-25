@@ -1,4 +1,4 @@
-﻿using GuessWord.Api.Interfaces;
+using GuessWord.Api.Interfaces;
 using GuessWord.Shared.Requests;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -54,6 +54,13 @@ namespace GuessWord.Api.Controllers
             var userId = GetUserId();
             var result = await _gameService.GiveUpSingleGameAsync(userId, gameId);
             return Ok(result);
+        }
+
+        [HttpGet("history")]
+        public async Task<IActionResult> GetHistory()
+        {
+            var userId = GetUserId();
+            return Ok(await _gameService.GetHistoryAsync(userId));
         }
 
         private int GetUserId()

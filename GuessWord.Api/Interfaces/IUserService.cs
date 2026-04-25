@@ -7,5 +7,6 @@ namespace GuessWord.Api.Interfaces
     {
         Task<AuthResponseDto?> Register(RegisterRequestDto request);
         Task<AuthResponseDto?> Login(LoginRequestDto request);
+        Task<UserProfileResponseDto?> GetProfileAsync(int userId);
     }
 }

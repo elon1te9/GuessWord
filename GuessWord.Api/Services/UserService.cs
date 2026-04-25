@@ -1,6 +1,7 @@
 using GuessWord.Api.Data;
 using GuessWord.Api.Interfaces;
 using GuessWord.Api.Models;
+using GuessWord.Shared.Enums;
 using GuessWord.Shared.Requests;
 using GuessWord.Shared.Responses;
 using Microsoft.AspNetCore.Identity;
@@ -81,6 +82,37 @@ namespace GuessWord.Api.Services
                 Token = token,
                 Login = user.Login,
                 Name = user.Name!
+            };
+        }
+
+        public async Task<UserProfileResponseDto?> GetProfileAsync(int userId)
+        {
+            var user = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == userId);
+
+            if (user is null)
+                return null;
+
+            var completedResults = await _context.GamePlayers
+                .AsNoTracking()
+                .Where(gp => gp.UserId == userId && gp.Game.Status == GameStatus.Finished)
+                .Select(gp => gp.Result)
+                .ToListAsync();
+
+            var gamesCount = completedResults.Count;
+            var winsCount = completedResults.Count(result => result == GamePlayerResult.Won);
+            var lossesCount = completedResults.Count(result => result != GamePlayerResult.Won);
+            var winRate = gamesCount == 0 ? 0 : winsCount * 100 / gamesCount;
+
+            return new UserProfileResponseDto
+            {
+                Login = user.Login,
+                Name = user.Name ?? user.Login,
+                GamesCount = gamesCount,
+                WinsCount = winsCount,
+                LossesCount = lossesCount,
+                WinRate = winRate
             };
         }
     }
