@@ -1,11 +1,11 @@
-﻿using GuessWord.Shared.Requests;
-using Microsoft.AspNetCore.Mvc;
+using GuessWord.Api.Services;
+using GuessWord.Shared.Requests;
 
 namespace GuessWord.Api.Interfaces
 {
     public interface IUserService
     {
-        Task<IActionResult> Register(RegisterRequestDto request);
-        Task<IActionResult> Login(LoginRequestDto request);
+        Task<AuthOperationResult> Register(RegisterRequestDto request);
+        Task<AuthOperationResult> Login(LoginRequestDto request);
     }
 }

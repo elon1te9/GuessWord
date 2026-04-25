@@ -21,9 +21,17 @@ namespace GuessWord.Api.Services
 
         public async Task<SingleGameResponseDto> StartSingleGameAsync(int userId)
         {
-            var currentGame = await GetCurrentGameEntityAsync(userId);
-            if (currentGame is not null)
-                return await BuildGameResponseAsync(currentGame.Id, userId);
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
+            var currentGamePlayer = await _context.GamePlayers
+                .Include(gp => gp.Game)
+                .FirstOrDefaultAsync(gp =>
+                    gp.UserId == userId &&
+                    gp.Game.Mode == GameMode.Single &&
+                    gp.Game.Status == GameStatus.InProgress);
+
+            if (currentGamePlayer is not null)
+                return await BuildGameResponseAsync(currentGamePlayer.GameId, userId);
 
             var secretWordsQuery = _context.Words
                 .AsNoTracking()
@@ -58,6 +66,7 @@ namespace GuessWord.Api.Services
             _context.Games.Add(game);
             _context.GamePlayers.Add(gamePlayer);
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
 
             return await BuildGameResponseAsync(game.Id, userId);
         }
@@ -73,6 +82,8 @@ namespace GuessWord.Api.Services
 
         public async Task<SingleGameResponseDto> SubmitGuessAsync(int userId, SubmitGuessRequestDto request)
         {
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
             var game = await _context.Games
                 .Include(g => g.Players)
                 .Include(g => g.Attempts)
@@ -112,10 +123,20 @@ namespace GuessWord.Api.Services
                 });
 
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
                 return await BuildGameResponseAsync(game.Id, userId);
             }
 
-            var isRepeated = game.Attempts.Any(a => a.UserId == userId && a.Word == normalizedWord && a.IsValid);
+            var existingValidAttempt = await _context.GameAttempts
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a =>
+                    a.GameId == game.Id &&
+                    a.UserId == userId &&
+                    a.Word == normalizedWord &&
+                    a.IsValid);
+
+            if (existingValidAttempt is not null)
+                return await BuildGameResponseAsync(game.Id, userId);
 
             var rank = await _rankService.GetRankAsync(game.SecretWordId, word.Id);
 
@@ -128,10 +149,7 @@ namespace GuessWord.Api.Services
                 IsValid = true
             });
 
-            if (!isRepeated)
-            {
-                player.AttemptsCount++;
-            }
+            player.AttemptsCount++;
 
             if (word.Id == game.SecretWordId)
             {
@@ -142,6 +160,7 @@ namespace GuessWord.Api.Services
             }
 
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
 
             return await BuildGameResponseAsync(game.Id, userId);
         }

@@ -1,4 +1,4 @@
-﻿using GuessWord.Api.Interfaces;
+using GuessWord.Api.Interfaces;
 using GuessWord.Shared.Requests;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,13 +18,15 @@ namespace GuessWord.Api.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterRequestDto request)
         {
-            return await _userService.Register(request);
+            var result = await _userService.Register(request);
+            return result.Success ? Ok(result.Data) : BadRequest(result.Error);
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginRequestDto request)
         {
-            return await _userService.Login(request);
+            var result = await _userService.Login(request);
+            return result.Success ? Ok(result.Data) : BadRequest(result.Error);
         }
     }
 }

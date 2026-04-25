@@ -1,10 +1,9 @@
-﻿using GuessWord.Api.Data;
+using GuessWord.Api.Data;
 using GuessWord.Api.Interfaces;
 using GuessWord.Api.Models;
 using GuessWord.Shared.Requests;
 using GuessWord.Shared.Responses;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace GuessWord.Api.Services
@@ -22,25 +21,37 @@ namespace GuessWord.Api.Services
             _passwordHasher = new PasswordHasher<User>();
         }
 
-        public async Task<IActionResult> Register(RegisterRequestDto request)
+        public async Task<AuthOperationResult> Register(RegisterRequestDto request)
         {
             if (string.IsNullOrWhiteSpace(request.Login) || string.IsNullOrWhiteSpace(request.Password) || string.IsNullOrWhiteSpace(request.Name))
             {
-                return new BadRequestObjectResult("Введены не все данные.");
+                return new AuthOperationResult
+                {
+                    Success = false,
+                    Error = "Введены не все данные."
+                };
             }
 
             var normalizedLogin = request.Login.Trim();
             var loginExists = await _context.Users.AnyAsync(x => x.Login == normalizedLogin);
             if (loginExists)
             {
-                return new BadRequestObjectResult("Пользователь с таким логином уже существует.");
+                return new AuthOperationResult
+                {
+                    Success = false,
+                    Error = "Пользователь с таким логином уже существует."
+                };
             }
 
             var normalizedName = request.Name.Trim();
             var nameExists = await _context.Users.AnyAsync(x => x.Name == normalizedName);
             if (nameExists)
             {
-                return new BadRequestObjectResult("Пользователь с таким именем уже существует.");
+                return new AuthOperationResult
+                {
+                    Success = false,
+                    Error = "Пользователь с таким именем уже существует."
+                };
             }
 
             var user = new User
@@ -64,14 +75,22 @@ namespace GuessWord.Api.Services
                 Name = user.Name
             };
 
-            return new OkObjectResult(response);
+            return new AuthOperationResult
+            {
+                Success = true,
+                Data = response
+            };
         }
 
-        public async Task<IActionResult> Login(LoginRequestDto request)
+        public async Task<AuthOperationResult> Login(LoginRequestDto request)
         {
             if (string.IsNullOrWhiteSpace(request.Login) || string.IsNullOrWhiteSpace(request.Password))
             {
-                return new BadRequestObjectResult("Введены не все данные.");
+                return new AuthOperationResult
+                {
+                    Success = false,
+                    Error = "Введены не все данные."
+                };
             }
 
             var normalizedLogin = request.Login.Trim();
@@ -79,14 +98,22 @@ namespace GuessWord.Api.Services
             var user = await _context.Users.FirstOrDefaultAsync(x => x.Login == normalizedLogin);
             if (user is null)
             {
-                return new BadRequestObjectResult("Неверный логин.");
+                return new AuthOperationResult
+                {
+                    Success = false,
+                    Error = "Неверный логин."
+                };
             }
 
             var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
 
             if (result == PasswordVerificationResult.Failed)
             {
-                return new BadRequestObjectResult("Неверный пароль.");
+                return new AuthOperationResult
+                {
+                    Success = false,
+                    Error = "Неверный пароль."
+                };
             }
 
             var token = _jwtService.GenerateToken(user);
@@ -98,7 +125,11 @@ namespace GuessWord.Api.Services
                 Name = user.Name!
             };
 
-            return new OkObjectResult(response);
+            return new AuthOperationResult
+            {
+                Success = true,
+                Data = response
+            };
         }
     }
 }
