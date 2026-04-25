@@ -1,11 +1,11 @@
-using GuessWord.Api.Services;
 using GuessWord.Shared.Requests;
+using GuessWord.Shared.Responses;
 
 namespace GuessWord.Api.Interfaces
 {
     public interface IUserService
     {
-        Task<AuthOperationResult> Register(RegisterRequestDto request);
-        Task<AuthOperationResult> Login(LoginRequestDto request);
+        Task<AuthResponseDto?> Register(RegisterRequestDto request);
+        Task<AuthResponseDto?> Login(LoginRequestDto request);
     }
 }

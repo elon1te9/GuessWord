@@ -1,0 +1,86 @@
+@using GuessWord.Shared.Enums
+@using GuessWord.Shared.Responses
+
+<div class="single-game-result-overlay">
+    <div class="single-game-result-modal">
+        <div class="single-game-result-pill">
+            @(CurrentGame.PlayerResult == GamePlayerResult.Won ? "Раунд завершён" : "Игра завершена")
+        </div>
+
+        <h2 class="single-game-result-title">@GetResultTitle()</h2>
+        <p class="single-game-result-text">@GetResultText()</p>
+
+        <div class="single-game-result-secret">
+            <div class="single-game-result-secret-label">Загаданное слово</div>
+            <div class="single-game-result-secret-word">@CurrentGame.SecretWord</div>
+        </div>
+
+        <div class="single-game-result-stats">
+            <div class="single-game-result-stat">
+                <div class="single-game-result-stat-label">Попытки</div>
+                <div class="single-game-result-stat-value">@CurrentGame.AttemptsCount</div>
+            </div>
+
+            <div class="single-game-result-stat">
+                <div class="single-game-result-stat-label">Результат</div>
+                <div class="single-game-result-stat-value">@GetResultValue()</div>
+            </div>
+        </div>
+
+        <div class="single-game-result-actions">
+            <button class="single-game-button single-game-button-light"
+                    @onclick="OnStartNewGame"
+                    disabled="@IsStartingGame"
+                    type="button">
+                @(IsStartingGame ? "Запуск..." : "Новая игра")
+            </button>
+            <button class="single-game-button single-game-button-dark" @onclick="OnNavigateToLobby" type="button">
+                В лобби
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public SingleGameResponseDto CurrentGame { get; set; } = null!;
+
+    [Parameter]
+    public bool IsStartingGame { get; set; }
+
+    [Parameter]
+    public EventCallback OnStartNewGame { get; set; }
+
+    [Parameter]
+    public EventCallback OnNavigateToLobby { get; set; }
+
+    private string GetResultTitle()
+    {
+        return CurrentGame.PlayerResult switch
+        {
+            GamePlayerResult.Won => "Победа!",
+            GamePlayerResult.GaveUp => "Вы сдались",
+            _ => "Игра завершена"
+        };
+    }
+
+    private string GetResultText()
+    {
+        return CurrentGame.PlayerResult switch
+        {
+            GamePlayerResult.Won => "Ты угадал слово",
+            GamePlayerResult.GaveUp => "Игра завершена",
+            _ => "Раунд завершён"
+        };
+    }
+
+    private string GetResultValue()
+    {
+        return CurrentGame.PlayerResult switch
+        {
+            GamePlayerResult.Won => "Победа",
+            GamePlayerResult.GaveUp => "Поражение",
+            _ => "Завершена"
+        };
+    }
+}

@@ -1,4 +1,4 @@
-﻿using GuessWord.Api.Data;
+using GuessWord.Api.Data;
 using GuessWord.Api.Interfaces;
 using GuessWord.Api.Models;
 using GuessWord.Shared.Enums;
@@ -66,6 +66,7 @@ namespace GuessWord.Api.Services
             _context.Games.Add(game);
             _context.GamePlayers.Add(gamePlayer);
             await _context.SaveChangesAsync();
+            await _rankService.PrepareRankingAsync(secretWord.Id);
             await transaction.CommitAsync();
 
             return await BuildGameResponseAsync(game.Id, userId);
@@ -113,18 +114,20 @@ namespace GuessWord.Api.Services
 
             if (word is null)
             {
-                game.Attempts.Add(new GameAttempt
+                var invalidAttempt = new GameAttempt
                 {
                     GameId = game.Id,
                     UserId = userId,
                     Word = normalizedWord,
                     Rank = null,
                     IsValid = false
-                });
+                };
+
+                game.Attempts.Add(invalidAttempt);
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
-                return await BuildGameResponseAsync(game.Id, userId);
+                return await BuildGameResponseAsync(game.Id, userId, invalidAttempt.Id, false);
             }
 
             var existingValidAttempt = await _context.GameAttempts
@@ -136,19 +139,20 @@ namespace GuessWord.Api.Services
                     a.IsValid);
 
             if (existingValidAttempt is not null)
-                return await BuildGameResponseAsync(game.Id, userId);
+                return await BuildGameResponseAsync(game.Id, userId, existingValidAttempt.Id, true);
 
             var rank = await _rankService.GetRankAsync(game.SecretWordId, word.Id);
 
-            game.Attempts.Add(new GameAttempt
+            var newAttempt = new GameAttempt
             {
                 GameId = game.Id,
                 UserId = userId,
                 Word = normalizedWord,
                 Rank = rank,
                 IsValid = true
-            });
+            };
 
+            game.Attempts.Add(newAttempt);
             player.AttemptsCount++;
 
             if (word.Id == game.SecretWordId)
@@ -162,7 +166,7 @@ namespace GuessWord.Api.Services
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            return await BuildGameResponseAsync(game.Id, userId);
+            return await BuildGameResponseAsync(game.Id, userId, newAttempt.Id, false);
         }
 
         public async Task<SingleGameResponseDto> GiveUpSingleGameAsync(int userId, int gameId)
@@ -209,7 +213,11 @@ namespace GuessWord.Api.Services
             return gamePlayer?.Game;
         }
 
-        private async Task<SingleGameResponseDto> BuildGameResponseAsync(int gameId, int userId)
+        private async Task<SingleGameResponseDto> BuildGameResponseAsync(
+            int gameId,
+            int userId,
+            int? lastAttemptId = null,
+            bool lastAttemptWasRepeated = false)
         {
             var game = await _context.Games
                 .AsNoTracking()
@@ -219,12 +227,36 @@ namespace GuessWord.Api.Services
                 .FirstAsync(g => g.Id == gameId);
 
             var player = game.Players.First();
-            var repeatedWords = game.Attempts
-                .Where(a => a.IsValid)
-                .GroupBy(a => a.Word)
-                .Where(g => g.Count() > 1)
-                .Select(g => g.Key)
-                .ToHashSet();
+            var attempts = game.Attempts
+                .OrderByDescending(a => a.CreatedAt)
+                .Select(a => new GameAttemptResponseDto
+                {
+                    Word = a.Word,
+                    Rank = a.Rank,
+                    IsValid = a.IsValid,
+                    IsRepeated = false,
+                    CreatedAt = a.CreatedAt
+                })
+                .ToList();
+
+            GameAttemptResponseDto? lastAttempt = null;
+
+            if (lastAttemptId.HasValue)
+            {
+                var sourceAttempt = game.Attempts.FirstOrDefault(a => a.Id == lastAttemptId.Value);
+
+                if (sourceAttempt is not null)
+                {
+                    lastAttempt = new GameAttemptResponseDto
+                    {
+                        Word = sourceAttempt.Word,
+                        Rank = sourceAttempt.Rank,
+                        IsValid = sourceAttempt.IsValid,
+                        IsRepeated = lastAttemptWasRepeated,
+                        CreatedAt = sourceAttempt.CreatedAt
+                    };
+                }
+            }
 
             return new SingleGameResponseDto
             {
@@ -233,17 +265,9 @@ namespace GuessWord.Api.Services
                 Status = game.Status,
                 PlayerResult = player.Result,
                 SecretWord = game.Status == GameStatus.Finished ? game.SecretWord.Text : null,
-                Attempts = game.Attempts
-                    .OrderByDescending(a => a.CreatedAt)
-                    .Select(a => new GameAttemptResponseDto
-                    {
-                        Word = a.Word,
-                        Rank = a.Rank,
-                        IsValid = a.IsValid,
-                        IsRepeated = a.IsValid && repeatedWords.Contains(a.Word),
-                        CreatedAt = a.CreatedAt
-                    })
-                    .ToList()
+                LastAttempt = lastAttempt,
+                LastAttemptWasRepeated = lastAttemptWasRepeated,
+                Attempts = attempts
             };
         }
     }

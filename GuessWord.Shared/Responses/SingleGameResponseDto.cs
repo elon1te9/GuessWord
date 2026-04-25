@@ -1,9 +1,4 @@
-﻿using GuessWord.Shared.Enums;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using GuessWord.Shared.Enums;
 
 namespace GuessWord.Shared.Responses
 {
@@ -18,6 +13,10 @@ namespace GuessWord.Shared.Responses
         public GamePlayerResult PlayerResult { get; set; }
 
         public string? SecretWord { get; set; }
+
+        public GameAttemptResponseDto? LastAttempt { get; set; }
+
+        public bool LastAttemptWasRepeated { get; set; }
 
         public List<GameAttemptResponseDto> Attempts { get; set; } = new();
     }

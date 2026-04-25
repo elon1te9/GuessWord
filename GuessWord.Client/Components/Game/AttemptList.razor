@@ -1,0 +1,26 @@
+@using GuessWord.Shared.Responses
+
+@if (Attempts.Count > 0)
+{
+    <div class="single-game-word-table">
+        @foreach (var attempt in Attempts)
+        {
+            <AttemptCard Attempt="attempt"
+                         IsActive="@IsLastSubmittedWord(attempt)" />
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public IReadOnlyList<GameAttemptResponseDto> Attempts { get; set; } = Array.Empty<GameAttemptResponseDto>();
+
+    [Parameter]
+    public GameAttemptResponseDto? LastSubmittedAttempt { get; set; }
+
+    private bool IsLastSubmittedWord(GameAttemptResponseDto attempt)
+    {
+        return LastSubmittedAttempt is not null &&
+               string.Equals(attempt.Word, LastSubmittedAttempt.Word, StringComparison.OrdinalIgnoreCase);
+    }
+}

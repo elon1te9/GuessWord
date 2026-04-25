@@ -1,0 +1,47 @@
+@using GuessWord.Shared.Responses
+
+<div class="single-game-word-row @(IsFeatured ? "single-game-word-row-featured" : "") @(IsActive ? "single-game-word-row-active" : "") @GetAttemptClass(Attempt)">
+    <div class="single-game-word-fill" style="--word-fill-width:@GetFillWidth(Attempt);"></div>
+    <div class="single-game-word-content">
+        <div class="single-game-word-text">@Attempt.Word</div>
+        <div class="single-game-word-rank">@Attempt.Rank</div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public GameAttemptResponseDto Attempt { get; set; } = null!;
+
+    [Parameter]
+    public bool IsFeatured { get; set; }
+
+    [Parameter]
+    public bool IsActive { get; set; }
+
+    private static string GetAttemptClass(GameAttemptResponseDto attempt)
+    {
+        if (!attempt.IsValid || !attempt.Rank.HasValue)
+            return "single-game-attempt-invalid";
+
+        return attempt.Rank.Value switch
+        {
+            <= 100 => "single-game-attempt-hot",
+            <= 1000 => "single-game-attempt-warm",
+            <= 5000 => "single-game-attempt-medium",
+            <= 15000 => "single-game-attempt-cold",
+            _ => "single-game-attempt-cold"
+        };
+    }
+
+    private static string GetFillWidth(GameAttemptResponseDto attempt)
+    {
+        if (!attempt.Rank.HasValue)
+            return "0%";
+
+        var rank = Math.Max(attempt.Rank.Value, 1);
+        var width = 100 - Math.Log10(rank) * 17.5;
+        var clampedWidth = Math.Clamp(width, 4d, 100d);
+
+        return $"{Math.Round(clampedWidth)}%";
+    }
+}

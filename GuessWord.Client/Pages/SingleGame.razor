@@ -1,5 +1,6 @@
 @page "/game/single"
 @implements IDisposable
+@using GuessWord.Client.Components.Game
 @using GuessWord.Shared.Enums
 @using GuessWord.Shared.Responses
 @inject NavigationManager Navigation
@@ -90,13 +91,9 @@
             <section class="single-game-card single-game-attempts-card">
                 @if (lastSubmittedAttempt is not null)
                 {
-                    <div class="single-game-word-row single-game-word-row-featured single-game-word-row-active @GetAttemptClass(lastSubmittedAttempt)">
-                        <div class="single-game-word-fill" style="--word-fill-width:@GetFillWidth(lastSubmittedAttempt);"></div>
-                        <div class="single-game-word-content">
-                            <div class="single-game-word-text">@lastSubmittedAttempt.Word</div>
-                            <div class="single-game-word-rank">@lastSubmittedAttempt.Rank</div>
-                        </div>
-                    </div>
+                    <AttemptCard Attempt="lastSubmittedAttempt"
+                                 IsFeatured="true"
+                                 IsActive="true" />
                 }
                 else if (showNotFoundCard)
                 {
@@ -107,18 +104,8 @@
 
                 @if (displayAttempts.Count > 0)
                 {
-                    <div class="single-game-word-table">
-                        @foreach (var attempt in displayAttempts)
-                        {
-                            <div class="single-game-word-row @GetAttemptClass(attempt) @(IsLastSubmittedWord(attempt) ? "single-game-word-row-active" : "")">
-                                <div class="single-game-word-fill" style="--word-fill-width:@GetFillWidth(attempt);"></div>
-                                <div class="single-game-word-content">
-                                    <div class="single-game-word-text">@attempt.Word</div>
-                                    <div class="single-game-word-rank">@attempt.Rank</div>
-                                </div>
-                            </div>
-                        }
-                    </div>
+                    <AttemptList Attempts="displayAttempts"
+                                 LastSubmittedAttempt="lastSubmittedAttempt" />
                 }
             </section>
         }
@@ -127,45 +114,10 @@
 
 @if (currentGame is not null && currentGame.Status == GameStatus.Finished)
 {
-    <div class="single-game-result-overlay">
-        <div class="single-game-result-modal">
-            <div class="single-game-result-pill">
-                @(currentGame.PlayerResult == GamePlayerResult.Won ? "Раунд завершён" : "Игра завершена")
-            </div>
-
-            <h2 class="single-game-result-title">@GetResultTitle()</h2>
-            <p class="single-game-result-text">@GetResultText()</p>
-
-            <div class="single-game-result-secret">
-                <div class="single-game-result-secret-label">Загаданное слово</div>
-                <div class="single-game-result-secret-word">@currentGame.SecretWord</div>
-            </div>
-
-            <div class="single-game-result-stats">
-                <div class="single-game-result-stat">
-                    <div class="single-game-result-stat-label">Попытки</div>
-                    <div class="single-game-result-stat-value">@currentGame.AttemptsCount</div>
-                </div>
-
-                <div class="single-game-result-stat">
-                    <div class="single-game-result-stat-label">Результат</div>
-                    <div class="single-game-result-stat-value">@GetResultValue()</div>
-                </div>
-            </div>
-
-            <div class="single-game-result-actions">
-                <button class="single-game-button single-game-button-light"
-                        @onclick="StartNewGameAsync"
-                        disabled="@isStartingGame"
-                        type="button">
-                    @(isStartingGame ? "Запуск..." : "Новая игра")
-                </button>
-                <button class="single-game-button single-game-button-dark" @onclick="NavigateToLobby" type="button">
-                    В лобби
-                </button>
-            </div>
-        </div>
-    </div>
+    <GameResultModal CurrentGame="currentGame"
+                     IsStartingGame="isStartingGame"
+                     OnStartNewGame="StartNewGameAsync"
+                     OnNavigateToLobby="NavigateToLobby" />
 }
 
 @code {
@@ -277,9 +229,7 @@
         currentGame = updatedGame;
         guessWord = string.Empty;
 
-        var latestAttempt = updatedGame.Attempts
-            .OrderByDescending(attempt => attempt.CreatedAt)
-            .FirstOrDefault();
+        var latestAttempt = updatedGame.LastAttempt;
 
         if (latestAttempt is null)
         {
@@ -296,15 +246,9 @@
             return;
         }
 
-        if (latestAttempt.IsRepeated)
+        if (updatedGame.LastAttemptWasRepeated)
         {
-            lastSubmittedAttempt = updatedGame.Attempts
-                .Where(attempt => attempt.IsValid && attempt.Rank.HasValue)
-                .GroupBy(attempt => attempt.Word.Trim(), StringComparer.OrdinalIgnoreCase)
-                .Where(group => string.Equals(group.Key, latestAttempt.Word.Trim(), StringComparison.OrdinalIgnoreCase))
-                .Select(group => group.OrderBy(attempt => attempt.Rank).ThenBy(attempt => attempt.CreatedAt).First())
-                .FirstOrDefault();
-
+            lastSubmittedAttempt = latestAttempt;
             showNotFoundCard = false;
             pageMessage = "Это слово уже было введено.";
             return;
@@ -348,78 +292,6 @@
             .OrderBy(attempt => attempt.Rank)
             .ThenBy(attempt => attempt.Word)
             .ToList();
-    }
-
-    private static string GetAttemptClass(GameAttemptResponseDto attempt)
-    {
-        if (!attempt.IsValid || !attempt.Rank.HasValue)
-            return "single-game-attempt-invalid";
-
-        return attempt.Rank.Value switch
-        {
-            <= 100 => "single-game-attempt-hot",
-            <= 1000 => "single-game-attempt-warm",
-            <= 5000 => "single-game-attempt-medium",
-            <= 15000 => "single-game-attempt-cold",
-            _ => "single-game-attempt-cold"
-        };
-    }
-
-    private static string GetFillWidth(GameAttemptResponseDto attempt)
-    {
-        if (!attempt.Rank.HasValue)
-            return "0%";
-
-        var rank = Math.Max(attempt.Rank.Value, 1);
-        var width = 100 - Math.Log10(rank) * 17.5;
-        var clampedWidth = Math.Clamp(width, 4d, 100d);
-
-        return $"{Math.Round(clampedWidth)}%";
-    }
-
-    private bool IsLastSubmittedWord(GameAttemptResponseDto attempt)
-    {
-        return lastSubmittedAttempt is not null &&
-               string.Equals(attempt.Word, lastSubmittedAttempt.Word, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private string GetResultTitle()
-    {
-        if (currentGame is null)
-            return "Игра завершена";
-
-        return currentGame.PlayerResult switch
-        {
-            GamePlayerResult.Won => "Победа!",
-            GamePlayerResult.GaveUp => "Вы сдались",
-            _ => "Игра завершена"
-        };
-    }
-
-    private string GetResultText()
-    {
-        if (currentGame is null)
-            return string.Empty;
-
-        return currentGame.PlayerResult switch
-        {
-            GamePlayerResult.Won => "Ты угадал слово",
-            GamePlayerResult.GaveUp => "Игра завершена",
-            _ => "Раунд завершён"
-        };
-    }
-
-    private string GetResultValue()
-    {
-        if (currentGame is null)
-            return string.Empty;
-
-        return currentGame.PlayerResult switch
-        {
-            GamePlayerResult.Won => "Победа",
-            GamePlayerResult.GaveUp => "Поражение",
-            _ => "Завершена"
-        };
     }
 
     public void Dispose()

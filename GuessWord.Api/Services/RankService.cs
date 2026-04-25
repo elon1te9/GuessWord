@@ -16,20 +16,40 @@ namespace GuessWord.Api.Services
             _cache = cache;
         }
 
+        public async Task PrepareRankingAsync(int secretWordId)
+        {
+            await GetOrBuildRankingAsync(secretWordId);
+        }
+
         public async Task<int> GetRankAsync(int secretWordId, int guessWordId)
         {
-            var cacheKey = $"ranking_{secretWordId}";
-
-            if (!_cache.TryGetValue(cacheKey, out Dictionary<int, int>? rankMap))
-            {
-                rankMap = await BuildRankingAsync(secretWordId);
-
-                _cache.Set(cacheKey, rankMap, TimeSpan.FromHours(3));
-            }
+            var rankMap = await GetOrBuildRankingAsync(secretWordId);
 
             return rankMap.TryGetValue(guessWordId, out var rank)
                 ? rank
                 : int.MaxValue;
+        }
+
+        private async Task<Dictionary<int, int>> GetOrBuildRankingAsync(int secretWordId)
+        {
+            var cacheKey = $"ranking_{secretWordId}";
+
+            if (_cache.TryGetValue(cacheKey, out Dictionary<int, int>? rankMap))
+                return rankMap!;
+
+            rankMap = await BuildRankingAsync(secretWordId);
+            SetRankingCache(cacheKey, rankMap);
+
+            return rankMap;
+        }
+
+        private void SetRankingCache(string cacheKey, Dictionary<int, int> rankMap)
+        {
+            _cache.Set(cacheKey, rankMap, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(3),
+                Size = 1
+            });
         }
 
         private async Task<Dictionary<int, int>> BuildRankingAsync(int secretWordId)

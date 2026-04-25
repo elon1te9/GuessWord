@@ -21,38 +21,20 @@ namespace GuessWord.Api.Services
             _passwordHasher = new PasswordHasher<User>();
         }
 
-        public async Task<AuthOperationResult> Register(RegisterRequestDto request)
+        public async Task<AuthResponseDto?> Register(RegisterRequestDto request)
         {
             if (string.IsNullOrWhiteSpace(request.Login) || string.IsNullOrWhiteSpace(request.Password) || string.IsNullOrWhiteSpace(request.Name))
-            {
-                return new AuthOperationResult
-                {
-                    Success = false,
-                    Error = "Введены не все данные."
-                };
-            }
+                return null;
 
             var normalizedLogin = request.Login.Trim();
             var loginExists = await _context.Users.AnyAsync(x => x.Login == normalizedLogin);
             if (loginExists)
-            {
-                return new AuthOperationResult
-                {
-                    Success = false,
-                    Error = "Пользователь с таким логином уже существует."
-                };
-            }
+                return null;
 
             var normalizedName = request.Name.Trim();
             var nameExists = await _context.Users.AnyAsync(x => x.Name == normalizedName);
             if (nameExists)
-            {
-                return new AuthOperationResult
-                {
-                    Success = false,
-                    Error = "Пользователь с таким именем уже существует."
-                };
-            }
+                return null;
 
             var user = new User
             {
@@ -68,67 +50,37 @@ namespace GuessWord.Api.Services
 
             var token = _jwtService.GenerateToken(user);
 
-            var response = new AuthResponseDto
+            return new AuthResponseDto
             {
                 Token = token,
                 Login = user.Login,
                 Name = user.Name
             };
-
-            return new AuthOperationResult
-            {
-                Success = true,
-                Data = response
-            };
         }
 
-        public async Task<AuthOperationResult> Login(LoginRequestDto request)
+        public async Task<AuthResponseDto?> Login(LoginRequestDto request)
         {
             if (string.IsNullOrWhiteSpace(request.Login) || string.IsNullOrWhiteSpace(request.Password))
-            {
-                return new AuthOperationResult
-                {
-                    Success = false,
-                    Error = "Введены не все данные."
-                };
-            }
+                return null;
 
             var normalizedLogin = request.Login.Trim();
 
             var user = await _context.Users.FirstOrDefaultAsync(x => x.Login == normalizedLogin);
             if (user is null)
-            {
-                return new AuthOperationResult
-                {
-                    Success = false,
-                    Error = "Неверный логин."
-                };
-            }
+                return null;
 
             var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
 
             if (result == PasswordVerificationResult.Failed)
-            {
-                return new AuthOperationResult
-                {
-                    Success = false,
-                    Error = "Неверный пароль."
-                };
-            }
+                return null;
 
             var token = _jwtService.GenerateToken(user);
 
-            var response = new AuthResponseDto
+            return new AuthResponseDto
             {
                 Token = token,
                 Login = user.Login,
                 Name = user.Name!
-            };
-
-            return new AuthOperationResult
-            {
-                Success = true,
-                Data = response
             };
         }
     }
