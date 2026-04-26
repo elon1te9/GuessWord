@@ -1,6 +1,7 @@
 using GuessWord.Api.Data;
 using GuessWord.Api.Interfaces;
 using GuessWord.Api.Models;
+using GuessWord.Shared.Enums;
 using GuessWord.Shared.Responses;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,10 +21,24 @@ namespace GuessWord.Api.Services
 
         public async Task<RoomResponseDto> CreateRoomAsync(int userId)
         {
+            var existingRoom = await _context.Rooms
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r =>
+                    r.HostUserId == userId &&
+                    r.GameId == null &&
+                    r.Status != RoomStatus.Closed);
+
+            if (existingRoom is not null)
+            {
+                return await BuildRoomResponseAsync(existingRoom.Code, userId)
+                    ?? throw new InvalidOperationException("Failed to load existing room.");
+            }
+
             var room = new Room
             {
                 Code = await GenerateUniqueCodeAsync(),
-                HostUserId = userId
+                HostUserId = userId,
+                Status = RoomStatus.Waiting
             };
 
             _context.Rooms.Add(room);
@@ -48,12 +63,16 @@ namespace GuessWord.Api.Services
             if (room.HostUserId == userId)
                 return await BuildRoomResponseAsync(room.Code, userId);
 
+            if (room.Status != RoomStatus.Waiting && room.Status != RoomStatus.Full)
+                return null;
+
             if (room.GuestUserId.HasValue && room.GuestUserId.Value != userId)
                 return null;
 
             if (room.GuestUserId != userId)
             {
                 room.GuestUserId = userId;
+                room.Status = RoomStatus.Full;
                 await _context.SaveChangesAsync();
             }
 
@@ -90,9 +109,13 @@ namespace GuessWord.Api.Services
             if (room is null)
                 return false;
 
+            if (room.Status == RoomStatus.InGame)
+                return false;
+
             if (room.GuestUserId == userId)
             {
                 room.GuestUserId = null;
+                room.Status = RoomStatus.Waiting;
             }
             else if (room.HostUserId == userId)
             {
@@ -123,8 +146,10 @@ namespace GuessWord.Api.Services
                 Code = room.Code,
                 HostName = GetDisplayName(room.HostUser),
                 GuestName = room.GuestUser is null ? null : GetDisplayName(room.GuestUser),
+                Status = room.Status,
+                GameId = room.GameId,
                 IsFull = room.GuestUserId.HasValue,
-                CanStartGame = room.HostUserId > 0 && room.GuestUserId.HasValue,
+                CanStartGame = room.GuestUserId.HasValue && room.Status == RoomStatus.Full,
                 IsHost = room.HostUserId == userId
             };
         }

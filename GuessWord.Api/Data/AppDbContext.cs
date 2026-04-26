@@ -32,6 +32,10 @@ namespace GuessWord.Api.Data
                 .HasIndex(x => x.Code)
                 .IsUnique();
 
+            modelBuilder.Entity<Room>()
+                .Property(x => x.Status)
+                .HasDefaultValue(GuessWord.Shared.Enums.RoomStatus.Waiting);
+
             modelBuilder.Entity<Word>()
                 .HasIndex(x => x.Text)
                 .IsUnique();
@@ -62,6 +66,17 @@ namespace GuessWord.Api.Data
                 .WithMany(u => u.GuestRooms)
                 .HasForeignKey(r => r.GuestUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Game>()
+                .HasOne(g => g.Room)
+                .WithOne()
+                .HasForeignKey<Game>(g => g.RoomId);
+
+            modelBuilder.Entity<Room>()
+                .HasOne(r => r.Game)
+                .WithMany()
+                .HasForeignKey(r => r.GameId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

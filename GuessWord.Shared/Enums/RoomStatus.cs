@@ -3,7 +3,8 @@
     public enum RoomStatus
     {
         Waiting = 0,
-        InGame = 1,
-        Finished = 2
+        Full = 1,
+        InGame = 2,
+        Closed = 3
     }
 }
