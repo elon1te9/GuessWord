@@ -8,6 +8,7 @@
 @inject GuessWord.Client.Services.UserStateService UserState
 @inject GuessWord.Client.Services.RoomService RoomService
 @inject GuessWord.Client.Services.GameService GameService
+@inject GuessWord.Client.Services.ApiSettings ApiSettings
 
 <PageTitle>Комната 1 на 1</PageTitle>
 
@@ -42,6 +43,11 @@
         <section class="game-card">
             <h2 class="game-title">Статус</h2>
             <p class="game-mode-status">@GetRoomStatusText(room.Status)</p>
+
+            @if (!string.IsNullOrWhiteSpace(signalRErrorMessage))
+            {
+                <p class="game-message">@signalRErrorMessage</p>
+            }
 
             @if (room.IsHost)
             {
@@ -93,6 +99,7 @@
     private bool isStartingGame;
     private string? errorMessage;
     private string? startGameError;
+    private string? signalRErrorMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -132,7 +139,7 @@
             return;
 
         hubConnection = new HubConnectionBuilder()
-            .WithUrl(Navigation.ToAbsoluteUri("/hubs/game"), options =>
+            .WithUrl(new Uri(new Uri(ApiSettings.BaseUrl), "hubs/game"), options =>
             {
                 options.AccessTokenProvider = () => Task.FromResult(UserState.Token);
             })
@@ -157,8 +164,16 @@
             return InvokeAsync(() => Navigation.NavigateTo($"/game/multiplayer/{gameId}"));
         });
 
-        await hubConnection.StartAsync();
-        await hubConnection.InvokeAsync("JoinRoomGroup", room.Code);
+        try
+        {
+            await hubConnection.StartAsync();
+            await hubConnection.InvokeAsync("JoinRoomGroup", room.Code);
+            signalRErrorMessage = null;
+        }
+        catch
+        {
+            signalRErrorMessage = "Комната загружена, но автообновление недоступно.";
+        }
     }
 
     private async Task StartMultiplayerGameAsync()
@@ -194,8 +209,14 @@
 
         if (hubConnection is not null)
         {
-            await hubConnection.InvokeAsync("LeaveRoomGroup", roomCode);
-            await hubConnection.StopAsync();
+            try
+            {
+                await hubConnection.InvokeAsync("LeaveRoomGroup", roomCode);
+                await hubConnection.StopAsync();
+            }
+            catch
+            {
+            }
         }
 
         isLeaving = false;

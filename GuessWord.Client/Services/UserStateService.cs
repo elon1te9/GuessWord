@@ -2,6 +2,7 @@ namespace GuessWord.Client.Services
 {
     public class UserStateService
     {
+        public int? UserId { get; private set; }
         public string? Token { get; private set; }
         public string? Login { get; private set; }
         public string? Name { get; private set; }
@@ -11,8 +12,9 @@ namespace GuessWord.Client.Services
 
         public event Action? OnChange;
 
-        public void SetUser(string token, string login, string? name)
+        public void SetUser(int userId, string token, string login, string? name)
         {
+            UserId = userId;
             Token = token;
             Login = login;
             Name = name;
@@ -21,6 +23,7 @@ namespace GuessWord.Client.Services
 
         public void ClearUser()
         {
+            UserId = null;
             Token = null;
             Login = null;
             Name = null;

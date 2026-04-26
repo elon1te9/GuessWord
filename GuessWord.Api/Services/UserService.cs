@@ -53,6 +53,7 @@ namespace GuessWord.Api.Services
 
             return new AuthResponseDto
             {
+                UserId = user.Id,
                 Token = token,
                 Login = user.Login,
                 Name = user.Name
@@ -79,6 +80,7 @@ namespace GuessWord.Api.Services
 
             return new AuthResponseDto
             {
+                UserId = user.Id,
                 Token = token,
                 Login = user.Login,
                 Name = user.Name!

@@ -173,6 +173,7 @@ public class ApiRequestService
 
     private async Task HandleUnauthorizedAsync()
     {
+        await _localStorageService.RemoveItemAsync("userId");
         await _localStorageService.RemoveItemAsync("token");
         await _localStorageService.RemoveItemAsync("login");
         await _localStorageService.RemoveItemAsync("name");

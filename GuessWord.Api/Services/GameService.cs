@@ -143,6 +143,48 @@ namespace GuessWord.Api.Services
             return game.Id;
         }
 
+        public async Task<GameStateDto?> GetGameStateAsync(int userId, int gameId)
+        {
+            var game = await _context.Games
+                .AsNoTracking()
+                .Include(g => g.SecretWord)
+                .Include(g => g.Players)
+                    .ThenInclude(p => p.User)
+                .Include(g => g.Attempts)
+                .FirstOrDefaultAsync(g => g.Id == gameId);
+
+            if (game is null || game.Mode != GameMode.Multiplayer || !game.Players.Any(p => p.UserId == userId))
+                return null;
+
+            return new GameStateDto
+            {
+                GameId = game.Id,
+                Status = game.Status,
+                SecretWordLength = game.SecretWord?.Text.Length,
+                WinnerId = game.WinnerUserId,
+                Players = game.Players
+                    .OrderBy(p => p.UserId)
+                    .Select(player => new GamePlayerStateDto
+                    {
+                        UserId = player.UserId,
+                        Username = string.IsNullOrWhiteSpace(player.User.Name)
+                            ? player.User.Login
+                            : player.User.Name,
+                        Attempts = game.Attempts
+                            .Where(a => a.UserId == player.UserId)
+                            .OrderByDescending(a => a.CreatedAt)
+                            .Select(a => new GameAttemptDto
+                            {
+                                Word = a.Word,
+                                Rank = a.Rank,
+                                CreatedAt = a.CreatedAt
+                            })
+                            .ToList()
+                    })
+                    .ToList()
+            };
+        }
+
         public async Task<MultiplayerGameResponseDto?> GetMultiplayerGameAsync(int userId, int gameId)
         {
             var game = await _context.Games

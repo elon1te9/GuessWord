@@ -13,6 +13,11 @@ builder.Services.AddScoped(sp => new HttpClient
     BaseAddress = new Uri("https://localhost:7172/")
 });
 
+builder.Services.AddScoped(_ => new ApiSettings
+{
+    BaseUrl = "https://localhost:7172/"
+});
+
 builder.Services.AddScoped<ApiRequestService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<GameService>();

@@ -7,6 +7,7 @@ namespace GuessWord.Api.Interfaces
     {
         Task<SingleGameResponseDto> StartSingleGameAsync(int userId);
         Task<int?> StartMultiplayerGameAsync(int userId, string roomCode);
+        Task<GameStateDto?> GetGameStateAsync(int userId, int gameId);
         Task<MultiplayerGameResponseDto?> GetMultiplayerGameAsync(int userId, int gameId);
         Task<SingleGameResponseDto?> GetCurrentSingleGameAsync(int userId);
         Task<MultiplayerGameResponseDto?> SubmitMultiplayerGuessAsync(int userId, SubmitGuessRequestDto request);

@@ -45,7 +45,17 @@ namespace GuessWord.Api.Controllers
             await _hubContext.Clients.Group($"room-{normalizedRoomCode}")
                 .SendAsync("MultiplayerGameStarted", gameId.Value);
 
+            await NotifyGameUpdatedAsync(gameId.Value);
+
             return Ok(gameId.Value);
+        }
+
+        [HttpGet("/api/games/{gameId:int}")]
+        public async Task<IActionResult> GetGameState(int gameId)
+        {
+            var userId = GetUserId();
+            var result = await _gameService.GetGameStateAsync(userId, gameId);
+            return result is null ? NotFound() : Ok(result);
         }
 
         [HttpGet("multiplayer/{gameId:int}")]
@@ -68,14 +78,7 @@ namespace GuessWord.Api.Controllers
             if (result is null)
                 return BadRequest();
 
-            await _hubContext.Clients.Group($"game-{request.GameId}")
-                .SendAsync("OpponentGuessSubmitted");
-
-            if (result.Status == GameStatus.Finished)
-            {
-                await _hubContext.Clients.Group($"game-{request.GameId}")
-                    .SendAsync("MultiplayerGameFinished");
-            }
+            await NotifyGameUpdatedAsync(request.GameId);
 
             return Ok(result);
         }
@@ -130,6 +133,12 @@ namespace GuessWord.Api.Controllers
         private static string NormalizeRoomCode(string roomCode)
         {
             return roomCode.Trim().ToUpperInvariant();
+        }
+
+        private Task NotifyGameUpdatedAsync(int gameId)
+        {
+            return _hubContext.Clients.Group($"game-{gameId}")
+                .SendAsync("GameUpdated", gameId);
         }
     }
 }

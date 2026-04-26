@@ -49,18 +49,20 @@ namespace GuessWord.Client.Services
 
         public async Task RestoreUser()
         {
+            var userIdValue = await _localStorageService.GetItemAsync("userId");
             var token = await _localStorageService.GetItemAsync("token");
             var login = await _localStorageService.GetItemAsync("login");
             var name = await _localStorageService.GetItemAsync("name");
 
-            if (!string.IsNullOrWhiteSpace(token) &&
+            if (int.TryParse(userIdValue, out var userId) &&
+                !string.IsNullOrWhiteSpace(token) &&
                 !string.IsNullOrWhiteSpace(login) &&
                 !string.IsNullOrWhiteSpace(name))
             {
                 _httpClient.DefaultRequestHeaders.Authorization =
                     new AuthenticationHeaderValue("Bearer", token);
 
-                _userStateService.SetUser(token, login, name);
+                _userStateService.SetUser(userId, token, login, name);
             }
 
             _userStateService.MarkInitialized();
@@ -68,6 +70,7 @@ namespace GuessWord.Client.Services
 
         public async Task Logout()
         {
+            await _localStorageService.RemoveItemAsync("userId");
             await _localStorageService.RemoveItemAsync("token");
             await _localStorageService.RemoveItemAsync("login");
             await _localStorageService.RemoveItemAsync("name");
@@ -83,6 +86,7 @@ namespace GuessWord.Client.Services
 
         private async Task SaveUserData(AuthResponseDto authData)
         {
+            await _localStorageService.SetItemAsync("userId", authData.UserId.ToString());
             await _localStorageService.SetItemAsync("token", authData.Token);
             await _localStorageService.SetItemAsync("login", authData.Login);
             await _localStorageService.SetItemAsync("name", authData.Name);
@@ -90,7 +94,7 @@ namespace GuessWord.Client.Services
             _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", authData.Token);
 
-            _userStateService.SetUser(authData.Token, authData.Login, authData.Name);
+            _userStateService.SetUser(authData.UserId, authData.Token, authData.Login, authData.Name);
         }
     }
 }
