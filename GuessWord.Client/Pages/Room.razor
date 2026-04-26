@@ -34,15 +34,39 @@
             <p class="game-subtitle">Код комнаты: @room.Code</p>
         </section>
 
-        <section class="game-card">
+        <section class="game-card room-section">
             <h2 class="game-title">Участники</h2>
-            <p class="game-message">Host: @room.HostName</p>
-            <p class="game-message">Guest: @(string.IsNullOrWhiteSpace(room.GuestName) ? "Ожидание соперника..." : room.GuestName)</p>
+
+            <div class="room-players-grid">
+                <div class="room-player-card">
+                    <div class="room-player-label">Создатель</div>
+                    <div class="room-player-name">@room.HostName</div>
+                </div>
+
+                <div class="room-player-card">
+                    <div class="room-player-label">Соперник</div>
+                    <div class="room-player-name">
+                        @(string.IsNullOrWhiteSpace(room.GuestName)
+                            ? "Ожидание..."
+                            : room.GuestName)
+                    </div>
+                </div>
+            </div>
         </section>
 
-        <section class="game-card">
-            <h2 class="game-title">Статус</h2>
-            <p class="game-mode-status">@GetRoomStatusText(room.Status)</p>
+        <section class="game-card room-status-card">
+            <div class="room-status-header">
+                <div>
+                    <h2 class="game-title">Статус</h2>
+                    <p class="game-subtitle">
+                        @(room.IsHost
+                            ? "Запусти матч, когда соперник подключится."
+                            : "Ожидаем старт от создателя комнаты.")
+                    </p>
+                </div>
+
+                <div class="room-status-pill">@GetRoomStatusText(room.Status)</div>
+            </div>
 
             @if (!string.IsNullOrWhiteSpace(signalRErrorMessage))
             {
@@ -51,12 +75,14 @@
 
             @if (room.IsHost)
             {
-                <button class="game-button game-button-dark"
-                        @onclick="StartMultiplayerGameAsync"
-                        disabled="@(!room.CanStartGame || isStartingGame)"
-                        type="button">
-                    @(isStartingGame ? "Запуск..." : "Начать игру")
-                </button>
+                <div class="room-actions">
+                    <button class="game-button game-button-dark"
+                            @onclick="StartMultiplayerGameAsync"
+                            disabled="@(!room.CanStartGame || isStartingGame)"
+                            type="button">
+                        @(isStartingGame ? "Запуск..." : "Начать игру")
+                    </button>
+                </div>
 
                 <p class="game-message">
                     @if (!string.IsNullOrWhiteSpace(startGameError))
@@ -77,13 +103,15 @@
             }
         </section>
 
-        <section class="game-card">
-            <button class="game-button game-button-light"
-                    @onclick="LeaveRoomAsync"
-                    disabled="@isLeaving"
-                    type="button">
-                @(isLeaving ? "Выход..." : "Выйти из комнаты")
-            </button>
+        <section class="game-card room-section">
+            <div class="room-actions">
+                <button class="game-button game-button-light"
+                        @onclick="LeaveRoomAsync"
+                        disabled="@isLeaving"
+                        type="button">
+                    @(isLeaving ? "Выход..." : "Выйти из комнаты")
+                </button>
+            </div>
         </section>
     }
 </div>

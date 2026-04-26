@@ -27,6 +27,11 @@ namespace GuessWord.Api.Controllers
         public async Task<IActionResult> StartSingleGame()
         {
             var userId = GetUserId();
+            var activeGame = await _gameService.GetActiveGameAsync(userId);
+
+            if (activeGame is not null && activeGame.GameMode == GameMode.Multiplayer)
+                return BadRequest("У вас уже есть активная игра.");
+
             var result = await _gameService.StartSingleGameAsync(userId);
             return Ok(result);
         }
@@ -35,6 +40,15 @@ namespace GuessWord.Api.Controllers
         public async Task<IActionResult> StartMultiplayerGame(string roomCode)
         {
             var userId = GetUserId();
+            var activeGame = await _gameService.GetActiveGameAsync(userId);
+
+            if (activeGame is not null &&
+                (activeGame.GameMode != GameMode.Multiplayer ||
+                 !string.Equals(activeGame.RoomCode, NormalizeRoomCode(roomCode), StringComparison.OrdinalIgnoreCase)))
+            {
+                return BadRequest("У вас уже есть активная игра.");
+            }
+
             var gameId = await _gameService.StartMultiplayerGameAsync(userId, roomCode);
 
             if (!gameId.HasValue)
@@ -58,6 +72,13 @@ namespace GuessWord.Api.Controllers
             return result is null ? NotFound() : Ok(result);
         }
 
+        [HttpGet("active")]
+        public async Task<IActionResult> GetActiveGame()
+        {
+            var userId = GetUserId();
+            return Ok(await _gameService.GetActiveGameAsync(userId));
+        }
+
         [HttpGet("multiplayer/{gameId:int}")]
         public async Task<IActionResult> GetMultiplayerGame(int gameId)
         {
@@ -79,6 +100,23 @@ namespace GuessWord.Api.Controllers
                 return BadRequest();
 
             await NotifyGameUpdatedAsync(request.GameId);
+
+            return Ok(result);
+        }
+
+        [HttpPost("/api/games/{gameId:int}/multiplayer/give-up")]
+        public async Task<IActionResult> GiveUpMultiplayerGame(int gameId)
+        {
+            if (gameId <= 0)
+                return BadRequest("Некорректный gameId.");
+
+            var userId = GetUserId();
+            var result = await _gameService.GiveUpMultiplayerGameAsync(userId, gameId);
+
+            if (result is null)
+                return NotFound();
+
+            await NotifyGameUpdatedAsync(gameId);
 
             return Ok(result);
         }

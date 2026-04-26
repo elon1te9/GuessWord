@@ -10,28 +10,28 @@
 @inject GuessWord.Client.Services.GameService GameService
 @inject GuessWord.Client.Services.ApiSettings ApiSettings
 
-<PageTitle>РРіСЂР° 1 РЅР° 1</PageTitle>
+<PageTitle>Игра 1 на 1</PageTitle>
 
 <div class="single-game-page">
     @if (isLoading)
     {
-        <p class="single-game-message">Р—Р°РіСЂСѓР·РєР°...</p>
+        <p class="single-game-message">Загрузка...</p>
     }
     else if (!UserState.IsAuthorized)
     {
         <section class="single-game-card single-game-empty-card">
-            <h1 class="single-game-title">РРіСЂР° 1 РЅР° 1</h1>
-            <p class="single-game-message">Р’РѕР№РґРёС‚Рµ РІ Р°РєРєР°СѓРЅС‚, С‡С‚РѕР±С‹ РёРіСЂР°С‚СЊ.</p>
+            <h1 class="single-game-title">Игра 1 на 1</h1>
+            <p class="single-game-message">Войдите в аккаунт, чтобы играть.</p>
             <button class="single-game-button single-game-button-light" @onclick="NavigateToLogin" type="button">
-                Р’РѕР№С‚Рё
+                Войти
             </button>
         </section>
     }
     else if (currentGame is null)
     {
         <section class="single-game-card single-game-empty-card">
-            <h1 class="single-game-title">РРіСЂР° РЅРµ РЅР°Р№РґРµРЅР°</h1>
-            <p class="single-game-message">РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ multiplayer-РёРіСЂСѓ.</p>
+            <h1 class="single-game-title">Игра не найдена</h1>
+            <p class="single-game-message">Не удалось загрузить multiplayer-игру.</p>
 
             @if (!string.IsNullOrWhiteSpace(pageMessage))
             {
@@ -39,7 +39,7 @@
             }
 
             <button class="single-game-button single-game-button-dark" @onclick="NavigateToLobby" type="button">
-                Р’ Р»РѕР±Р±Рё
+                В лобби
             </button>
         </section>
     }
@@ -48,14 +48,20 @@
         <section class="single-game-card single-game-header">
             <div class="single-game-header-main">
                 <div>
-                    <h1 class="single-game-title">РРіСЂР° 1 РЅР° 1</h1>
-                    <p class="single-game-subtitle">РћР±С‰РёР№ СЂР°СѓРЅРґ РїСЂРѕС‚РёРІ СЃРѕРїРµСЂРЅРёРєР°</p>
+                    <h1 class="single-game-title">Игра 1 на 1</h1>
+                    <p class="single-game-subtitle">Общий раунд против соперника</p>
                 </div>
 
                 <div class="single-game-header-actions">
-                    <div class="single-game-meta">РџРѕРїС‹С‚РєРё: @GetAttemptsCount()</div>
+                    <div class="single-game-meta">Попытки: @GetAttemptsCount()</div>
+                    <button class="single-game-button single-game-button-danger"
+                            @onclick="GiveUpAsync"
+                            disabled="@(isSubmitting || currentGame.Status == GameStatus.Finished)"
+                            type="button">
+                        Сдаться
+                    </button>
                     <button class="single-game-button single-game-button-light" @onclick="NavigateToLobby" type="button">
-                        Р’ Р»РѕР±Р±Рё
+                        В лобби
                     </button>
                 </div>
             </div>
@@ -71,27 +77,60 @@
                        @bind="guessWord"
                        @bind:event="oninput"
                        disabled="@(isSubmitting || currentGame.Status == GameStatus.Finished)"
-                       placeholder="Р’РІРµРґРёС‚Рµ СЃР»РѕРІРѕ" />
+                       placeholder="Введите слово" />
 
                 <button class="single-game-button single-game-button-dark"
                         disabled="@(isSubmitting || currentGame.Status == GameStatus.Finished)"
                         type="submit">
-                    @(isSubmitting ? "РџСЂРѕРІРµСЂРєР°..." : "РџСЂРѕРІРµСЂРёС‚СЊ")
+                    @(isSubmitting ? "Проверка..." : "Проверить")
                 </button>
             </form>
 
-            @if (!string.IsNullOrWhiteSpace(pageMessage) && pageMessage != "Р­С‚Рѕ СЃР»РѕРІРѕ СѓР¶Рµ Р±С‹Р»Рѕ РІРІРµРґРµРЅРѕ.")
+            @if (!string.IsNullOrWhiteSpace(pageMessage) && pageMessage != "Это слово уже было введено.")
             {
                 <p class="single-game-message">@pageMessage</p>
             }
         </section>
 
-        <section class="single-game-card">
-            <h2 class="single-game-title">РЎРѕРїРµСЂРЅРёРє</h2>
-            <div class="single-game-message">@GetOpponentName()</div>
-            <div class="single-game-message">Р›СѓС‡С€РёР№ СЂР°РЅРі: @(GetOpponentBestRank()?.ToString() ?? "вЂ”")</div>
-            <div class="single-game-message">РџРѕРїС‹С‚РєРё: @GetOpponentAttemptsCount()</div>
-        </section>
+        @if (isOpponentPanelVisible)
+        {
+            <section class="single-game-card multiplayer-opponent-card">
+                <div class="multiplayer-opponent-header">
+                    <div class="multiplayer-opponent-main">
+                        <h2 class="multiplayer-opponent-title">Соперник</h2>
+                        <p class="multiplayer-opponent-name">@GetOpponentName()</p>
+                    </div>
+
+                    <button class="single-game-button single-game-button-light multiplayer-opponent-collapse-button"
+                            @onclick="ToggleOpponentPanel"
+                            type="button">
+                        Скрыть
+                    </button>
+                </div>
+
+                <div class="multiplayer-opponent-stats">
+                    <div class="multiplayer-stat-card">
+                        <div class="multiplayer-stat-label">Лучший ранг</div>
+                        <div class="multiplayer-stat-value">@(GetOpponentBestRank()?.ToString() ?? "—")</div>
+                    </div>
+
+                    <div class="multiplayer-stat-card">
+                        <div class="multiplayer-stat-label">Попытки</div>
+                        <div class="multiplayer-stat-value">@GetOpponentAttemptsCount()</div>
+                    </div>
+                </div>
+            </section>
+        }
+        else
+        {
+            <div class="multiplayer-opponent-toggle-wrap">
+                <button class="single-game-button single-game-button-light multiplayer-opponent-toggle-button"
+                        @onclick="ToggleOpponentPanel"
+                        type="button">
+                    Показать соперника
+                </button>
+            </div>
+        }
 
         @if (lastSubmittedAttempt is not null || showNotFoundCard || displayAttempts.Count > 0)
         {
@@ -105,7 +144,7 @@
                 else if (showNotFoundCard)
                 {
                     <div class="single-game-word-not-found">
-                        С‚Р°РєРѕРіРѕ СЃР»РѕРІР° РЅРµ РЅР°Р№РґРµРЅРѕ
+                        Такого слова не найдено
                     </div>
                 }
 
@@ -123,30 +162,30 @@
 {
     <div class="single-game-result-overlay">
         <div class="single-game-result-modal">
-            <div class="single-game-result-pill">Р Р°СѓРЅРґ Р·Р°РІРµСЂС€С‘РЅ</div>
+            <div class="single-game-result-pill">Раунд завершён</div>
             <h2 class="single-game-result-title">@GetResultTitle()</h2>
             <p class="single-game-result-text">@GetResultText()</p>
 
             <div class="single-game-result-secret">
-                <div class="single-game-result-secret-label">Р”Р»РёРЅР° СЃРµРєСЂРµС‚РЅРѕРіРѕ СЃР»РѕРІР°</div>
+                <div class="single-game-result-secret-label">Длина секретного слова</div>
                 <div class="single-game-result-secret-word">@currentGame.SecretWordLength</div>
             </div>
 
             <div class="single-game-result-stats">
                 <div class="single-game-result-stat">
-                    <div class="single-game-result-stat-label">РџРѕРїС‹С‚РєРё</div>
+                    <div class="single-game-result-stat-label">Попытки</div>
                     <div class="single-game-result-stat-value">@GetAttemptsCount()</div>
                 </div>
 
                 <div class="single-game-result-stat">
-                    <div class="single-game-result-stat-label">Р РµР·СѓР»СЊС‚Р°С‚</div>
+                    <div class="single-game-result-stat-label">Результат</div>
                     <div class="single-game-result-stat-value">@GetResultValue()</div>
                 </div>
             </div>
 
             <div class="single-game-result-actions">
                 <button class="single-game-button single-game-button-dark" @onclick="NavigateToLobby" type="button">
-                    Р’ Р»РѕР±Р±Рё
+                    В лобби
                 </button>
             </div>
         </div>
@@ -161,6 +200,7 @@
     private bool isSubmitting;
     private bool showNotFoundCard;
     private bool shouldFocusGuessInput;
+    private bool isOpponentPanelVisible = true;
     private string guessWord = string.Empty;
     private string pageMessage = string.Empty;
     private string? signalRErrorMessage;
@@ -209,7 +249,7 @@
         isLoading = false;
 
         if (currentGame is null)
-            pageMessage = "РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ СЃРѕСЃС‚РѕСЏРЅРёРµ multiplayer-РёРіСЂС‹.";
+            pageMessage = "Не удалось получить состояние multiplayer-игры.";
     }
 
     private async Task InitializeSignalRAsync()
@@ -242,7 +282,7 @@
         }
         catch
         {
-            signalRErrorMessage = "РђРІС‚РѕРѕР±РЅРѕРІР»РµРЅРёРµ РёРіСЂС‹ РЅРµРґРѕСЃС‚СѓРїРЅРѕ.";
+            signalRErrorMessage = "Автообновление игры недоступно.";
         }
     }
 
@@ -250,6 +290,11 @@
     {
         await LoadGameState(GameId);
         await InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleOpponentPanel()
+    {
+        isOpponentPanelVisible = !isOpponentPanelVisible;
     }
 
     private void NavigateToLogin()
@@ -271,7 +316,7 @@
 
         if (string.IsNullOrWhiteSpace(trimmedWord))
         {
-            pageMessage = "Р’РІРµРґРёС‚Рµ СЃР»РѕРІРѕ.";
+            pageMessage = "Введите слово.";
             return;
         }
 
@@ -284,7 +329,7 @@
 
         if (updatedGame is null)
         {
-            pageMessage = "РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ СЃР»РѕРІРѕ.";
+            pageMessage = "Не удалось отправить слово.";
             shouldFocusGuessInput = true;
             return;
         }
@@ -315,7 +360,7 @@
         {
             lastSubmittedAttempt = latestAttempt;
             showNotFoundCard = false;
-            pageMessage = "Р­С‚Рѕ СЃР»РѕРІРѕ СѓР¶Рµ Р±С‹Р»Рѕ РІРІРµРґРµРЅРѕ.";
+            pageMessage = "Это слово уже было введено.";
             shouldFocusGuessInput = true;
             return;
         }
@@ -324,6 +369,29 @@
         showNotFoundCard = false;
         pageMessage = string.Empty;
         shouldFocusGuessInput = true;
+    }
+
+    private async Task GiveUpAsync()
+    {
+        if (currentGame is null || isSubmitting || currentGame.Status == GameStatus.Finished)
+            return;
+
+        isSubmitting = true;
+        pageMessage = string.Empty;
+
+        var updatedGame = await GameService.GiveUpMultiplayerGameAsync(GameId);
+
+        isSubmitting = false;
+
+        if (updatedGame is null)
+        {
+            pageMessage = "Не удалось завершить игру.";
+            return;
+        }
+
+        currentGame = updatedGame;
+        UpdateDisplayAttempts();
+        await InvokeAsync(StateHasChanged);
     }
 
     private void UpdateDisplayAttempts()
@@ -371,7 +439,7 @@
 
     private string GetOpponentName()
     {
-        return GetOpponent()?.Username ?? "РЎРѕРїРµСЂРЅРёРє";
+        return GetOpponent()?.Username ?? "Соперник";
     }
 
     private int GetOpponentAttemptsCount()
@@ -394,31 +462,31 @@
     private string GetResultTitle()
     {
         if (currentGame is null)
-            return "РРіСЂР° Р·Р°РІРµСЂС€РµРЅР°";
+            return "Игра завершена";
 
         return IsCurrentUserWinner()
-            ? "РџРѕР±РµРґР°!"
-            : "РџРѕСЂР°Р¶РµРЅРёРµ";
+            ? "Победа!"
+            : "Поражение";
     }
 
     private string GetResultText()
     {
         if (currentGame is null)
-            return "Р Р°СѓРЅРґ Р·Р°РІРµСЂС€С‘РЅ";
+            return "Раунд завершён";
 
         return IsCurrentUserWinner()
-            ? "РўС‹ РѕР±РѕС€С‘Р» СЃРѕРїРµСЂРЅРёРєР°"
-            : "РЎРѕРїРµСЂРЅРёРє РѕРєР°Р·Р°Р»СЃСЏ Р±Р»РёР¶Рµ";
+            ? "Ты обошёл соперника"
+            : "Соперник оказался ближе";
     }
 
     private string GetResultValue()
     {
         if (currentGame is null)
-            return "Р—Р°РІРµСЂС€РµРЅР°";
+            return "Завершена";
 
         return IsCurrentUserWinner()
-            ? "РџРѕР±РµРґР°"
-            : "РџРѕСЂР°Р¶РµРЅРёРµ";
+            ? "Победа"
+            : "Поражение";
     }
 
     public async ValueTask DisposeAsync()

@@ -19,8 +19,18 @@ namespace GuessWord.Api.Services
             _context = context;
         }
 
-        public async Task<RoomResponseDto> CreateRoomAsync(int userId)
+        public async Task<RoomResponseDto?> CreateRoomAsync(int userId)
         {
+            var hasActiveGame = await _context.GamePlayers
+                .AsNoTracking()
+                .AnyAsync(gp =>
+                    gp.UserId == userId &&
+                    gp.Game.Status == GameStatus.InProgress &&
+                    (gp.Game.Mode == GameMode.Multiplayer || gp.IsActiveSingleGame));
+
+            if (hasActiveGame)
+                return null;
+
             var existingRoom = await _context.Rooms
                 .AsNoTracking()
                 .FirstOrDefaultAsync(r =>
@@ -52,6 +62,16 @@ namespace GuessWord.Api.Services
         {
             var normalizedCode = NormalizeCode(code);
             if (string.IsNullOrWhiteSpace(normalizedCode))
+                return null;
+
+            var hasActiveGame = await _context.GamePlayers
+                .AsNoTracking()
+                .AnyAsync(gp =>
+                    gp.UserId == userId &&
+                    gp.Game.Status == GameStatus.InProgress &&
+                    (gp.Game.Mode == GameMode.Multiplayer || gp.IsActiveSingleGame));
+
+            if (hasActiveGame)
                 return null;
 
             var room = await _context.Rooms

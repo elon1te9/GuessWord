@@ -1,5 +1,7 @@
 @page "/game"
 @implements IDisposable
+@using GuessWord.Shared.Enums
+@using GuessWord.Shared.Responses
 @inject NavigationManager Navigation
 @inject GuessWord.Client.Services.UserStateService UserState
 @inject GuessWord.Client.Services.GameService GameService
@@ -27,6 +29,20 @@
             <p class="game-subtitle">Выбери режим и начни новый раунд</p>
         </section>
 
+        @if (activeGame is not null)
+        {
+            <section class="game-card game-active-card">
+                <h2 class="game-active-title">У тебя уже есть активная игра</h2>
+                <p class="game-active-text">Заверши текущую игру, чтобы начать новую.</p>
+
+                <div class="game-active-actions">
+                    <button class="game-button game-button-dark" @onclick="ConnectToActiveGameAsync" type="button">
+                        Подключиться к активной игре
+                    </button>
+                </div>
+            </section>
+        }
+
         <div class="game-modes-grid">
             <section class="game-card game-mode-card">
                 <h2 class="game-mode-title">Одиночная игра</h2>
@@ -35,20 +51,20 @@
                 </p>
 
                 <div class="game-actions">
-                    @if (hasActiveSingleGame)
+                    @if (activeGame?.GameMode == GameMode.Single)
                     {
                         <button class="game-button game-button-dark"
-                                @onclick="ContinueSingleGameAsync"
+                                @onclick="ConnectToActiveGameAsync"
                                 disabled="@isActionLoading"
                                 type="button">
-                            @(isActionLoading ? "Загрузка..." : "Продолжить активную игру")
+                            @(isActionLoading ? "Загрузка..." : "Подключиться к активной игре")
                         </button>
                     }
                     else
                     {
                         <button class="game-button game-button-dark"
                                 @onclick="StartSingleGameAsync"
-                                disabled="@isActionLoading"
+                                disabled="@(isActionLoading || HasActiveGame)"
                                 type="button">
                             @(isActionLoading ? "Запуск..." : "Начать игру")
                         </button>
@@ -72,35 +88,32 @@
                     Соревнуйся с другим игроком в общем раунде.
                 </p>
 
-                <div class="multiplayer-lobby">
+                <div class="game-actions">
                     <button class="game-button game-button-light"
                             @onclick="CreateRoomAsync"
-                            disabled="@isCreatingRoom"
+                            disabled="@(isCreatingRoom || HasActiveGame)"
                             type="button">
                         @(isCreatingRoom ? "Создание..." : "Создать комнату")
                     </button>
 
-                    <div class="game-actions join-room">
-                        <input type="text"
-                               placeholder="Код комнаты"
-                               @bind="roomCode"
-                               class="game-input input" />
-
-                        <button class="game-button game-button-light"
-                                @onclick="JoinRoomAsync"
-                                disabled="@isJoiningRoom"
-                                type="button">
-                            @(isJoiningRoom ? "Подключение..." : "Присоединиться")
-                        </button>
-                    </div>
-
-                    @if (!string.IsNullOrWhiteSpace(roomError))
-                    {
-                        <div class="error-message game-message">@roomError</div>
-                    }
+                    <button class="game-button game-button-light"
+                            @onclick="OpenJoinRoomModal"
+                            disabled="@(isJoiningRoom || HasActiveGame)"
+                            type="button">
+                        Присоединиться
+                    </button>
                 </div>
 
-                <p class="game-mode-status">Создай комнату или подключись по коду, чтобы перейти в лобби 1 на 1.</p>
+                @if (!string.IsNullOrWhiteSpace(roomError))
+                {
+                    <div class="error-message game-message">@roomError</div>
+                }
+
+                <p class="game-mode-status">
+                    @(HasActiveGame
+                        ? "Сначала заверши активную игру, чтобы создать комнату или подключиться по коду."
+                        : "Создай комнату или подключись по коду, чтобы перейти в лобби 1 на 1.")
+                </p>
             </section>
         </div>
 
@@ -116,16 +129,59 @@
     }
 </div>
 
+@if (isJoinRoomModalOpen)
+{
+    <div class="single-game-result-overlay">
+        <div class="single-game-result-modal game-join-modal">
+            <h2 class="game-join-modal-title">Подключиться к комнате</h2>
+            <p class="game-join-modal-text">Введи код комнаты, чтобы присоединиться к матчу.</p>
+
+            <div class="game-join-modal-form">
+                <input class="single-game-input"
+                       @bind="joinRoomCode"
+                       @bind:event="oninput"
+                       disabled="@isJoiningRoom"
+                       placeholder="Код комнаты" />
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(joinRoomModalError))
+            {
+                <p class="game-join-modal-message">@joinRoomModalError</p>
+            }
+
+            <div class="single-game-result-actions game-join-modal-actions">
+                <button class="single-game-button single-game-button-dark"
+                        @onclick="JoinRoomAsync"
+                        disabled="@isJoiningRoom"
+                        type="button">
+                    @(isJoiningRoom ? "Подключение..." : "Подключиться")
+                </button>
+
+                <button class="single-game-button single-game-button-light"
+                        @onclick="CloseJoinRoomModal"
+                        disabled="@isJoiningRoom"
+                        type="button">
+                    Отмена
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private bool isLoading = true;
     private bool isActionLoading;
     private bool isCreatingRoom;
     private bool isJoiningRoom;
-    private bool hasActiveSingleGame;
-    private string roomCode = string.Empty;
+    private bool isJoinRoomModalOpen;
+    private ActiveGameDto? activeGame;
+    private string joinRoomCode = string.Empty;
     private string? roomError;
+    private string? joinRoomModalError;
     private string errorMessage = string.Empty;
     private string singleModeStatus = string.Empty;
+
+    private bool HasActiveGame => activeGame is not null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -145,8 +201,9 @@
     private async Task LoadLobbyStateAsync()
     {
         errorMessage = string.Empty;
+        roomError = null;
         singleModeStatus = string.Empty;
-        hasActiveSingleGame = false;
+        activeGame = null;
 
         if (!UserState.IsAuthorized)
         {
@@ -156,11 +213,14 @@
 
         isLoading = true;
 
-        var currentGame = await GameService.GetCurrentSingleGameAsync();
-        hasActiveSingleGame = currentGame is not null;
-        singleModeStatus = hasActiveSingleGame
-            ? "У тебя уже есть активная одиночная игра."
-            : "Сейчас активной одиночной игры нет.";
+        activeGame = await GameService.GetActiveGameAsync();
+
+        singleModeStatus = activeGame?.GameMode switch
+        {
+            GameMode.Single => "У тебя уже есть активная одиночная игра.",
+            GameMode.Multiplayer => "Сейчас у тебя активна multiplayer-игра.",
+            _ => "Сейчас активной игры нет."
+        };
 
         isLoading = false;
     }
@@ -170,9 +230,24 @@
         Navigation.NavigateTo("/login");
     }
 
+    private async Task ConnectToActiveGameAsync()
+    {
+        if (activeGame is null)
+            return;
+
+        if (activeGame.GameMode == GameMode.Single)
+        {
+            Navigation.NavigateTo("/game/single");
+            return;
+        }
+
+        Navigation.NavigateTo($"/game/multiplayer/{activeGame.GameId}");
+        await Task.CompletedTask;
+    }
+
     private async Task StartSingleGameAsync()
     {
-        if (isActionLoading)
+        if (isActionLoading || HasActiveGame)
             return;
 
         isActionLoading = true;
@@ -184,43 +259,18 @@
 
         if (game is null)
         {
+            await LoadLobbyStateAsync();
             errorMessage = "Не удалось начать игру. Попробуйте ещё раз.";
             return;
         }
 
-        hasActiveSingleGame = true;
-        singleModeStatus = "Новая одиночная игра создана.";
-        Navigation.NavigateTo("/game/single");
-    }
-
-    private async Task ContinueSingleGameAsync()
-    {
-        if (isActionLoading || !UserState.IsAuthorized)
-            return;
-
-        isActionLoading = true;
-        errorMessage = string.Empty;
-
-        var game = await GameService.GetCurrentSingleGameAsync();
-
-        isActionLoading = false;
-
-        if (game is null)
-        {
-            hasActiveSingleGame = false;
-            singleModeStatus = "Активная игра не найдена.";
-            errorMessage = "Не удалось начать игру. Попробуйте ещё раз.";
-            return;
-        }
-
-        hasActiveSingleGame = true;
-        singleModeStatus = "Продолжаем текущую одиночную игру.";
+        await LoadLobbyStateAsync();
         Navigation.NavigateTo("/game/single");
     }
 
     private async Task CreateRoomAsync()
     {
-        if (isCreatingRoom)
+        if (isCreatingRoom || HasActiveGame)
             return;
 
         isCreatingRoom = true;
@@ -232,6 +282,7 @@
 
         if (room is null)
         {
+            await LoadLobbyStateAsync();
             roomError = "Не удалось создать комнату.";
             return;
         }
@@ -239,30 +290,53 @@
         Navigation.NavigateTo($"/game/room/{room.Code}");
     }
 
-    private async Task JoinRoomAsync()
+    private void OpenJoinRoomModal()
+    {
+        if (HasActiveGame)
+            return;
+
+        joinRoomModalError = null;
+        joinRoomCode = string.Empty;
+        isJoinRoomModalOpen = true;
+    }
+
+    private void CloseJoinRoomModal()
     {
         if (isJoiningRoom)
             return;
 
-        if (string.IsNullOrWhiteSpace(roomCode))
+        isJoinRoomModalOpen = false;
+        joinRoomModalError = null;
+        joinRoomCode = string.Empty;
+    }
+
+    private async Task JoinRoomAsync()
+    {
+        if (isJoiningRoom || HasActiveGame)
+            return;
+
+        if (string.IsNullOrWhiteSpace(joinRoomCode))
         {
-            roomError = "Введите код комнаты.";
+            joinRoomModalError = "Введите код комнаты.";
             return;
         }
 
         isJoiningRoom = true;
+        joinRoomModalError = null;
         roomError = null;
 
-        var room = await RoomService.JoinRoomAsync(roomCode);
+        var room = await RoomService.JoinRoomAsync(joinRoomCode);
 
         isJoiningRoom = false;
 
         if (room is null)
         {
-            roomError = "Комната не найдена или уже заполнена.";
+            await LoadLobbyStateAsync();
+            joinRoomModalError = "Комната не найдена, уже заполнена или у тебя есть активная игра.";
             return;
         }
 
+        CloseJoinRoomModal();
         Navigation.NavigateTo($"/game/room/{room.Code}");
     }
 

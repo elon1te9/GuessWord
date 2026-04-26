@@ -22,6 +22,11 @@ public class GameService
         return await _apiRequestService.GetAsync<SingleGameResponseDto>("api/game/single/current");
     }
 
+    public async Task<ActiveGameDto?> GetActiveGameAsync()
+    {
+        return await _apiRequestService.GetAsync<ActiveGameDto>("api/game/active");
+    }
+
     public async Task<SingleGameResponseDto?> SubmitGuessAsync(int gameId, string word)
     {
         var request = new SubmitGuessRequestDto
@@ -51,6 +56,11 @@ public class GameService
     public async Task<GameStateDto?> GetGameStateAsync(int gameId)
     {
         return await _apiRequestService.GetAsync<GameStateDto>($"api/games/{gameId}");
+    }
+
+    public async Task<GameStateDto?> GiveUpMultiplayerGameAsync(int gameId)
+    {
+        return await _apiRequestService.PostAsync<GameStateDto>($"api/games/{gameId}/multiplayer/give-up");
     }
 
     public async Task<MultiplayerGameResponseDto?> GetMultiplayerGameAsync(int gameId)

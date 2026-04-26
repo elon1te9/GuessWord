@@ -22,6 +22,30 @@ namespace GuessWord.Api.Services
             _rankService = rankService;
         }
 
+        public async Task<ActiveGameDto?> GetActiveGameAsync(int userId)
+        {
+            var activeGame = await _context.GamePlayers
+                .AsNoTracking()
+                .Where(gp => gp.UserId == userId && gp.Game.Status == GameStatus.InProgress)
+                .Include(gp => gp.Game)
+                .OrderByDescending(gp => gp.Game.CreatedAt)
+                .Select(gp => new ActiveGameDto
+                {
+                    GameId = gp.GameId,
+                    GameMode = gp.Game.Mode,
+                    Status = gp.Game.Status,
+                    RoomCode = gp.Game.Mode == GameMode.Multiplayer
+                        ? _context.Rooms
+                            .Where(r => r.GameId == gp.GameId)
+                            .Select(r => r.Code)
+                            .FirstOrDefault()
+                        : null
+                })
+                .FirstOrDefaultAsync();
+
+            return activeGame;
+        }
+
         public async Task<SingleGameResponseDto> StartSingleGameAsync(int userId)
         {
             await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -85,6 +109,13 @@ namespace GuessWord.Api.Services
             if (string.IsNullOrWhiteSpace(normalizedRoomCode))
                 return null;
 
+            var activePlayers = await _context.GamePlayers
+                .AsNoTracking()
+                .Where(gp => gp.Game.Status == GameStatus.InProgress)
+                .Where(gp => gp.Game.Mode == GameMode.Multiplayer || gp.IsActiveSingleGame)
+                .Select(gp => new { gp.UserId, gp.GameId })
+                .ToListAsync();
+
             await using var transaction = await _context.Database.BeginTransactionAsync();
 
             var room = await _context.Rooms
@@ -95,6 +126,13 @@ namespace GuessWord.Api.Services
                 !room.GuestUserId.HasValue ||
                 room.Status != RoomStatus.Full ||
                 room.GameId.HasValue)
+            {
+                await transaction.RollbackAsync();
+                return null;
+            }
+
+            if (activePlayers.Any(p => p.UserId == room.HostUserId) ||
+                activePlayers.Any(p => p.UserId == room.GuestUserId!.Value))
             {
                 await transaction.RollbackAsync();
                 return null;
@@ -282,6 +320,39 @@ namespace GuessWord.Api.Services
             await _context.SaveChangesAsync();
 
             return await BuildMultiplayerGameResponseAsync(game.Id, userId, newAttempt.Id, false);
+        }
+
+        public async Task<GameStateDto?> GiveUpMultiplayerGameAsync(int userId, int gameId)
+        {
+            var game = await _context.Games
+                .Include(g => g.Players)
+                .FirstOrDefaultAsync(g => g.Id == gameId);
+
+            if (game is null || game.Mode != GameMode.Multiplayer)
+                return null;
+
+            var player = game.Players.FirstOrDefault(p => p.UserId == userId);
+            if (player is null)
+                return null;
+
+            if (game.Status == GameStatus.Finished)
+                return await GetGameStateAsync(userId, gameId);
+
+            var opponent = game.Players.FirstOrDefault(p => p.UserId != userId);
+
+            game.Status = GameStatus.Finished;
+            game.FinishedAt = DateTime.UtcNow;
+            game.WinnerUserId = opponent?.UserId;
+            player.Result = GamePlayerResult.GaveUp;
+
+            if (opponent is not null)
+            {
+                opponent.Result = GamePlayerResult.Won;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return await GetGameStateAsync(userId, gameId);
         }
 
         public async Task<SingleGameResponseDto> SubmitGuessAsync(int userId, SubmitGuessRequestDto request)

@@ -33,7 +33,8 @@ namespace GuessWord.Api.Controllers
         public async Task<IActionResult> CreateRoom()
         {
             var userId = GetUserId();
-            return Ok(await _roomService.CreateRoomAsync(userId));
+            var room = await _roomService.CreateRoomAsync(userId);
+            return room is null ? BadRequest("У вас уже есть активная игра.") : Ok(room);
         }
 
         [HttpPost("join")]
@@ -46,7 +47,7 @@ namespace GuessWord.Api.Controllers
             var room = await _roomService.JoinRoomAsync(userId, request.Code);
 
             if (room is null)
-                return NotFound();
+                return BadRequest("Не удалось присоединиться к комнате.");
 
             await _hubContext.Clients.Group($"room-{NormalizeRoomCode(room.Code)}")
                 .SendAsync("RoomUpdated", room);
