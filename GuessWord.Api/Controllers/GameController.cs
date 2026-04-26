@@ -1,5 +1,6 @@
 using GuessWord.Api.Hubs;
 using GuessWord.Api.Interfaces;
+using GuessWord.Shared.Enums;
 using GuessWord.Shared.Requests;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -45,6 +46,38 @@ namespace GuessWord.Api.Controllers
                 .SendAsync("MultiplayerGameStarted", gameId.Value);
 
             return Ok(gameId.Value);
+        }
+
+        [HttpGet("multiplayer/{gameId:int}")]
+        public async Task<IActionResult> GetMultiplayerGame(int gameId)
+        {
+            var userId = GetUserId();
+            var result = await _gameService.GetMultiplayerGameAsync(userId, gameId);
+            return result is null ? NotFound() : Ok(result);
+        }
+
+        [HttpPost("multiplayer/guess")]
+        public async Task<IActionResult> SubmitMultiplayerGuess(SubmitGuessRequestDto request)
+        {
+            if (request.GameId <= 0 || string.IsNullOrWhiteSpace(request.Word))
+                return BadRequest("Некорректный запрос.");
+
+            var userId = GetUserId();
+            var result = await _gameService.SubmitMultiplayerGuessAsync(userId, request);
+
+            if (result is null)
+                return BadRequest();
+
+            await _hubContext.Clients.Group($"game-{request.GameId}")
+                .SendAsync("OpponentGuessSubmitted");
+
+            if (result.Status == GameStatus.Finished)
+            {
+                await _hubContext.Clients.Group($"game-{request.GameId}")
+                    .SendAsync("MultiplayerGameFinished");
+            }
+
+            return Ok(result);
         }
 
         [HttpGet("single/current")]

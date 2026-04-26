@@ -7,6 +7,7 @@
 @inject NavigationManager Navigation
 @inject GuessWord.Client.Services.UserStateService UserState
 @inject GuessWord.Client.Services.RoomService RoomService
+@inject GuessWord.Client.Services.GameService GameService
 
 <PageTitle>Комната 1 на 1</PageTitle>
 
@@ -45,15 +46,23 @@
             @if (room.IsHost)
             {
                 <button class="game-button game-button-dark"
-                        disabled
+                        @onclick="StartMultiplayerGameAsync"
+                        disabled="@(!room.CanStartGame || isStartingGame)"
                         type="button">
-                    Начать игру
+                    @(isStartingGame ? "Запуск..." : "Начать игру")
                 </button>
 
                 <p class="game-message">
-                    @(room.CanStartGame
-                        ? "Старт игры будет добавлен на следующем шаге."
-                        : "Ожидаем второго игрока.")
+                    @if (!string.IsNullOrWhiteSpace(startGameError))
+                    {
+                        @startGameError
+                    }
+                    else
+                    {
+                        @(room.CanStartGame
+                            ? "Можно запускать матч."
+                            : "Ожидаем второго игрока.")
+                    }
                 </p>
             }
             else
@@ -81,7 +90,9 @@
     private HubConnection? hubConnection;
     private bool isLoading = true;
     private bool isLeaving;
+    private bool isStartingGame;
     private string? errorMessage;
+    private string? startGameError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -130,6 +141,7 @@
         hubConnection.On<RoomResponseDto>("RoomUpdated", updatedRoom =>
         {
             room = updatedRoom;
+            startGameError = null;
             return InvokeAsync(StateHasChanged);
         });
 
@@ -145,6 +157,27 @@
 
         await hubConnection.StartAsync();
         await hubConnection.InvokeAsync("JoinRoomGroup", room.Code);
+    }
+
+    private async Task StartMultiplayerGameAsync()
+    {
+        if (room is null || !room.IsHost || !room.CanStartGame || isStartingGame)
+            return;
+
+        isStartingGame = true;
+        startGameError = null;
+
+        var gameId = await GameService.StartMultiplayerGameAsync(room.Code);
+
+        isStartingGame = false;
+
+        if (!gameId.HasValue)
+        {
+            startGameError = "Не удалось запустить игру.";
+            return;
+        }
+
+        Navigation.NavigateTo($"/game/multiplayer/{gameId.Value}");
     }
 
     private async Task LeaveRoomAsync()

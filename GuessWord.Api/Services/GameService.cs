@@ -36,20 +36,7 @@ namespace GuessWord.Api.Services
             if (currentGamePlayer is not null)
                 return await BuildGameResponseAsync(currentGamePlayer.GameId, userId);
 
-            var secretWordsQuery = _context.Words
-                .AsNoTracking()
-                .Where(w => w.CanBeSecret && w.Embedding != null);
-
-            var secretWordsCount = await secretWordsQuery.CountAsync();
-            if (secretWordsCount == 0)
-                throw new Exception("Секретные слова не найдены.");
-
-            var randomIndex = Random.Shared.Next(secretWordsCount);
-
-            var secretWord = await secretWordsQuery
-                .OrderBy(w => w.Id)
-                .Skip(randomIndex)
-                .FirstAsync();
+            var secretWord = await GetRandomSecretWordAsync();
 
             var game = new Game
             {
@@ -69,6 +56,7 @@ namespace GuessWord.Api.Services
 
             _context.Games.Add(game);
             _context.GamePlayers.Add(gamePlayer);
+
             try
             {
                 await _context.SaveChangesAsync();
@@ -93,7 +81,7 @@ namespace GuessWord.Api.Services
 
         public async Task<int?> StartMultiplayerGameAsync(int userId, string roomCode)
         {
-            var normalizedRoomCode = roomCode.Trim().ToUpperInvariant();
+            var normalizedRoomCode = NormalizeRoomCode(roomCode);
             if (string.IsNullOrWhiteSpace(normalizedRoomCode))
                 return null;
 
@@ -112,20 +100,7 @@ namespace GuessWord.Api.Services
                 return null;
             }
 
-            var secretWordsQuery = _context.Words
-                .AsNoTracking()
-                .Where(w => w.CanBeSecret && w.Embedding != null);
-
-            var secretWordsCount = await secretWordsQuery.CountAsync();
-            if (secretWordsCount == 0)
-                throw new Exception("РЎРµРєСЂРµС‚РЅС‹Рµ СЃР»РѕРІР° РЅРµ РЅР°Р№РґРµРЅС‹.");
-
-            var randomIndex = Random.Shared.Next(secretWordsCount);
-
-            var secretWord = await secretWordsQuery
-                .OrderBy(w => w.Id)
-                .Skip(randomIndex)
-                .FirstAsync();
+            var secretWord = await GetRandomSecretWordAsync();
 
             var game = new Game
             {
@@ -168,6 +143,19 @@ namespace GuessWord.Api.Services
             return game.Id;
         }
 
+        public async Task<MultiplayerGameResponseDto?> GetMultiplayerGameAsync(int userId, int gameId)
+        {
+            var game = await _context.Games
+                .AsNoTracking()
+                .Include(g => g.Players)
+                .FirstOrDefaultAsync(g => g.Id == gameId);
+
+            if (game is null || game.Mode != GameMode.Multiplayer || !game.Players.Any(p => p.UserId == userId))
+                return null;
+
+            return await BuildMultiplayerGameResponseAsync(gameId, userId);
+        }
+
         public async Task<SingleGameResponseDto?> GetCurrentSingleGameAsync(int userId)
         {
             var currentGame = await GetCurrentGameEntityAsync(userId);
@@ -175,6 +163,83 @@ namespace GuessWord.Api.Services
                 return null;
 
             return await BuildGameResponseAsync(currentGame.Id, userId);
+        }
+
+        public async Task<MultiplayerGameResponseDto?> SubmitMultiplayerGuessAsync(int userId, SubmitGuessRequestDto request)
+        {
+            var game = await _context.Games
+                .Include(g => g.Players)
+                .Include(g => g.Attempts)
+                .Include(g => g.SecretWord)
+                .FirstOrDefaultAsync(g => g.Id == request.GameId);
+
+            if (game is null || game.Mode != GameMode.Multiplayer || game.Status == GameStatus.Finished)
+                return null;
+
+            var player = game.Players.FirstOrDefault(p => p.UserId == userId);
+            if (player is null)
+                return null;
+
+            var normalizedWord = request.Word.Trim().ToLower();
+            if (string.IsNullOrWhiteSpace(normalizedWord))
+                return null;
+
+            var word = await _context.Words
+                .AsNoTracking()
+                .FirstOrDefaultAsync(w => w.Text == normalizedWord);
+
+            var existingValidAttempt = await FindExistingValidAttemptAsync(game.Id, userId, normalizedWord);
+
+            if (word is not null && existingValidAttempt is not null)
+                return await BuildMultiplayerGameResponseAsync(game.Id, userId, existingValidAttempt.Id, true);
+
+            if (word is null)
+            {
+                var invalidAttempt = new GameAttempt
+                {
+                    GameId = game.Id,
+                    UserId = userId,
+                    Word = normalizedWord,
+                    Rank = null,
+                    IsValid = false
+                };
+
+                game.Attempts.Add(invalidAttempt);
+                await _context.SaveChangesAsync();
+
+                return await BuildMultiplayerGameResponseAsync(game.Id, userId, invalidAttempt.Id, false);
+            }
+
+            var rank = await _rankService.GetRankAsync(game.SecretWordId, word.Id);
+
+            var newAttempt = new GameAttempt
+            {
+                GameId = game.Id,
+                UserId = userId,
+                Word = normalizedWord,
+                Rank = rank,
+                IsValid = true
+            };
+
+            game.Attempts.Add(newAttempt);
+            player.AttemptsCount++;
+
+            if (word.Id == game.SecretWordId)
+            {
+                game.Status = GameStatus.Finished;
+                game.WinnerUserId = userId;
+                game.FinishedAt = DateTime.UtcNow;
+                player.Result = GamePlayerResult.Won;
+
+                foreach (var otherPlayer in game.Players.Where(p => p.UserId != userId))
+                {
+                    otherPlayer.Result = GamePlayerResult.Lost;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            return await BuildMultiplayerGameResponseAsync(game.Id, userId, newAttempt.Id, false);
         }
 
         public async Task<SingleGameResponseDto> SubmitGuessAsync(int userId, SubmitGuessRequestDto request)
@@ -447,6 +512,110 @@ namespace GuessWord.Api.Services
                 LastAttemptWasRepeated = lastAttemptWasRepeated,
                 Attempts = attempts
             };
+        }
+
+        private async Task<MultiplayerGameResponseDto> BuildMultiplayerGameResponseAsync(
+            int gameId,
+            int userId,
+            int? lastAttemptId = null,
+            bool lastAttemptWasRepeated = false)
+        {
+            var game = await _context.Games
+                .AsNoTracking()
+                .Include(g => g.SecretWord)
+                .Include(g => g.Attempts)
+                .Include(g => g.Players)
+                    .ThenInclude(p => p.User)
+                .FirstAsync(g => g.Id == gameId);
+
+            var player = game.Players.First(p => p.UserId == userId);
+            var opponent = game.Players.FirstOrDefault(p => p.UserId != userId);
+
+            var attempts = game.Attempts
+                .Where(a => a.UserId == userId)
+                .OrderByDescending(a => a.CreatedAt)
+                .Select(a => new GameAttemptResponseDto
+                {
+                    Word = a.Word,
+                    Rank = a.Rank,
+                    IsValid = a.IsValid,
+                    IsRepeated = false,
+                    CreatedAt = a.CreatedAt
+                })
+                .ToList();
+
+            var opponentBestRank = game.Attempts
+                .Where(a => a.UserId == opponent?.UserId && a.IsValid && a.Rank.HasValue)
+                .Select(a => a.Rank)
+                .Min();
+
+            GameAttemptResponseDto? lastAttempt = null;
+
+            if (lastAttemptId.HasValue)
+            {
+                var sourceAttempt = game.Attempts
+                    .FirstOrDefault(a => a.Id == lastAttemptId.Value && a.UserId == userId);
+
+                if (sourceAttempt is not null)
+                {
+                    lastAttempt = new GameAttemptResponseDto
+                    {
+                        Word = sourceAttempt.Word,
+                        Rank = sourceAttempt.Rank,
+                        IsValid = sourceAttempt.IsValid,
+                        IsRepeated = lastAttemptWasRepeated,
+                        CreatedAt = sourceAttempt.CreatedAt
+                    };
+                }
+            }
+
+            var opponentName = "Соперник";
+
+            if (opponent?.User is not null)
+            {
+                opponentName = string.IsNullOrWhiteSpace(opponent.User.Name)
+                    ? opponent.User.Login
+                    : opponent.User.Name;
+            }
+
+            return new MultiplayerGameResponseDto
+            {
+                GameId = game.Id,
+                Status = game.Status,
+                PlayerResult = player.Result,
+                SecretWord = game.Status == GameStatus.Finished ? game.SecretWord.Text : null,
+                AttemptsCount = player.AttemptsCount,
+                Attempts = attempts,
+                LastAttempt = lastAttempt,
+                LastAttemptWasRepeated = lastAttemptWasRepeated,
+                OpponentName = opponentName,
+                OpponentAttemptsCount = opponent?.AttemptsCount ?? 0,
+                OpponentBestRank = opponentBestRank,
+                IsWinner = game.WinnerUserId == userId
+            };
+        }
+
+        private async Task<Word> GetRandomSecretWordAsync()
+        {
+            var secretWordsQuery = _context.Words
+                .AsNoTracking()
+                .Where(w => w.CanBeSecret && w.Embedding != null);
+
+            var secretWordsCount = await secretWordsQuery.CountAsync();
+            if (secretWordsCount == 0)
+                throw new Exception("Секретные слова не найдены.");
+
+            var randomIndex = Random.Shared.Next(secretWordsCount);
+
+            return await secretWordsQuery
+                .OrderBy(w => w.Id)
+                .Skip(randomIndex)
+                .FirstAsync();
+        }
+
+        private static string NormalizeRoomCode(string roomCode)
+        {
+            return roomCode.Trim().ToUpperInvariant();
         }
 
         private static bool IsActiveSingleGameUniqueViolation(DbUpdateException exception)

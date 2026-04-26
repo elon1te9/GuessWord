@@ -202,7 +202,7 @@
         isLoading = false;
 
         if (currentGame is null)
-            pageMessage = "Страница готова, но backend endpoint multiplayer-игры может быть ещё не реализован.";
+            pageMessage = "Не удалось получить состояние multiplayer-игры.";
     }
 
     private async Task InitializeSignalRAsync()
@@ -215,34 +215,30 @@
             .WithAutomaticReconnect()
             .Build();
 
-        hubConnection.On<MultiplayerGameResponseDto>("MultiplayerGameUpdated", updatedGame =>
-        {
-            currentGame = updatedGame;
-            UpdateDisplayAttempts();
-            return InvokeAsync(StateHasChanged);
-        });
-
         hubConnection.On("OpponentGuessSubmitted", async () =>
         {
-            var updatedGame = await GameService.GetMultiplayerGameAsync(GameId);
-
-            if (updatedGame is null)
-                return;
-
-            currentGame = updatedGame;
-            UpdateDisplayAttempts();
-            await InvokeAsync(StateHasChanged);
+            await ReloadGameStateAsync();
         });
 
-        hubConnection.On<MultiplayerGameResponseDto>("MultiplayerGameFinished", finishedGame =>
+        hubConnection.On("MultiplayerGameFinished", async () =>
         {
-            currentGame = finishedGame;
-            UpdateDisplayAttempts();
-            return InvokeAsync(StateHasChanged);
+            await ReloadGameStateAsync();
         });
 
         await hubConnection.StartAsync();
         await hubConnection.InvokeAsync("JoinGameGroup", GameId);
+    }
+
+    private async Task ReloadGameStateAsync()
+    {
+        var updatedGame = await GameService.GetMultiplayerGameAsync(GameId);
+
+        if (updatedGame is null)
+            return;
+
+        currentGame = updatedGame;
+        UpdateDisplayAttempts();
+        await InvokeAsync(StateHasChanged);
     }
 
     private void NavigateToLogin()
@@ -346,7 +342,9 @@
 
         return currentGame.IsWinner || currentGame.PlayerResult == GamePlayerResult.Won
             ? "Победа!"
-            : "Поражение";
+            : currentGame.PlayerResult == GamePlayerResult.GaveUp
+                ? "Ты сдался"
+                : "Поражение";
     }
 
     private string GetResultText()
@@ -356,7 +354,9 @@
 
         return currentGame.IsWinner || currentGame.PlayerResult == GamePlayerResult.Won
             ? "Ты обошёл соперника"
-            : "Соперник оказался ближе";
+            : currentGame.PlayerResult == GamePlayerResult.GaveUp
+                ? "Игра завершена досрочно"
+                : "Соперник оказался ближе";
     }
 
     private string GetResultValue()
@@ -366,7 +366,9 @@
 
         return currentGame.IsWinner || currentGame.PlayerResult == GamePlayerResult.Won
             ? "Победа"
-            : "Поражение";
+            : currentGame.PlayerResult == GamePlayerResult.GaveUp
+                ? "Сдался"
+                : "Поражение";
     }
 
     public async ValueTask DisposeAsync()

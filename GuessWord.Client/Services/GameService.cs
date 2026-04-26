@@ -43,6 +43,11 @@ public class GameService
         return await _apiRequestService.GetAsync<List<GameHistoryItemResponseDto>>("api/game/history");
     }
 
+    public async Task<int?> StartMultiplayerGameAsync(string roomCode)
+    {
+        return await _apiRequestService.PostAsync<int>($"api/game/multiplayer/start/{roomCode}");
+    }
+
     public async Task<MultiplayerGameResponseDto?> GetMultiplayerGameAsync(int gameId)
     {
         return await _apiRequestService.GetAsync<MultiplayerGameResponseDto>($"api/game/multiplayer/{gameId}");
