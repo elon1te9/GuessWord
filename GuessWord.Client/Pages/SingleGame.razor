@@ -1,5 +1,6 @@
 @page "/game/single"
 @implements IDisposable
+@using Microsoft.AspNetCore.Components
 @using GuessWord.Client.Components.Game
 @using GuessWord.Shared.Enums
 @using GuessWord.Shared.Responses
@@ -68,6 +69,7 @@
 
             <form class="single-game-form" @onsubmit="SubmitGuessAsync" @onsubmit:preventDefault="true">
                 <input class="single-game-input"
+                       @ref="guessInputRef"
                        @bind="guessWord"
                        @bind:event="oninput"
                        disabled="@(isSubmitting || currentGame.Status == GameStatus.Finished)"
@@ -127,6 +129,7 @@
     private bool showNotFoundCard;
     private string guessWord = string.Empty;
     private string pageMessage = string.Empty;
+    private ElementReference guessInputRef;
     private SingleGameResponseDto? currentGame;
     private GameAttemptResponseDto? lastSubmittedAttempt;
     private List<GameAttemptResponseDto> displayAttempts = new();
@@ -225,6 +228,7 @@
         if (updatedGame is null)
         {
             pageMessage = "Не удалось отправить слово.";
+            await TryFocusGuessInputAsync();
             return;
         }
 
@@ -238,6 +242,7 @@
         {
             lastSubmittedAttempt = null;
             showNotFoundCard = false;
+            await TryFocusGuessInputAsync();
             return;
         }
 
@@ -246,6 +251,7 @@
             lastSubmittedAttempt = null;
             showNotFoundCard = true;
             pageMessage = string.Empty;
+            await TryFocusGuessInputAsync();
             return;
         }
 
@@ -254,12 +260,14 @@
             lastSubmittedAttempt = latestAttempt;
             showNotFoundCard = false;
             pageMessage = "Это слово уже было введено.";
+            await TryFocusGuessInputAsync();
             return;
         }
 
         lastSubmittedAttempt = latestAttempt;
         showNotFoundCard = false;
         pageMessage = string.Empty;
+        await TryFocusGuessInputAsync();
     }
 
     private async Task GiveUpAsync()
@@ -301,6 +309,14 @@
             .OrderBy(attempt => attempt.Rank)
             .ThenBy(attempt => attempt.Word)
             .ToList();
+    }
+
+    private async Task TryFocusGuessInputAsync()
+    {
+        if (currentGame is null || currentGame.Status == GameStatus.Finished || isSubmitting)
+            return;
+
+        await InvokeAsync(async () => await guessInputRef.FocusAsync());
     }
 
     public void Dispose()

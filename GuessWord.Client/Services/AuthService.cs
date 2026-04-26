@@ -1,4 +1,4 @@
-﻿using GuessWord.Shared.Requests;
+using GuessWord.Shared.Requests;
 using GuessWord.Shared.Responses;
 using System.Net.Http.Headers;
 
@@ -25,7 +25,7 @@ namespace GuessWord.Client.Services
 
         public async Task<AuthResponseDto?> Register(RegisterRequestDto request)
         {
-            var result = await _apiRequestService.PostAsync<RegisterRequestDto, AuthResponseDto>("api/user/register",request);
+            var result = await _apiRequestService.PostAsync<RegisterRequestDto, AuthResponseDto>("api/user/register", request);
 
             if (result is not null)
             {
@@ -34,9 +34,10 @@ namespace GuessWord.Client.Services
 
             return result;
         }
+
         public async Task<AuthResponseDto?> Login(LoginRequestDto request)
         {
-            var result = await _apiRequestService.PostAsync<LoginRequestDto, AuthResponseDto>("api/user/login",request);
+            var result = await _apiRequestService.PostAsync<LoginRequestDto, AuthResponseDto>("api/user/login", request);
 
             if (result is not null)
             {
@@ -45,19 +46,24 @@ namespace GuessWord.Client.Services
 
             return result;
         }
+
         public async Task RestoreUser()
         {
             var token = await _localStorageService.GetItemAsync("token");
             var login = await _localStorageService.GetItemAsync("login");
             var name = await _localStorageService.GetItemAsync("name");
 
-            if (string.IsNullOrWhiteSpace(token) || string.IsNullOrWhiteSpace(login) || string.IsNullOrWhiteSpace(name))
-                return;
+            if (!string.IsNullOrWhiteSpace(token) &&
+                !string.IsNullOrWhiteSpace(login) &&
+                !string.IsNullOrWhiteSpace(name))
+            {
+                _httpClient.DefaultRequestHeaders.Authorization =
+                    new AuthenticationHeaderValue("Bearer", token);
 
-            _httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", token);
+                _userStateService.SetUser(token, login, name);
+            }
 
-            _userStateService.SetUser(token, login, name);
+            _userStateService.MarkInitialized();
         }
 
         public async Task Logout()

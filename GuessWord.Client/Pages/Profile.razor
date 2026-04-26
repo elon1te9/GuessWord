@@ -8,19 +8,19 @@
 <PageTitle>Профиль</PageTitle>
 
 <div class="profile-page">
-    @if (!UserState.IsAuthorized)
+    @if (!UserState.IsInitialized || _isLoading)
+    {
+        <section class="profile-card profile-empty-card">
+            <h1 class="profile-empty-title">Профиль</h1>
+            <p class="profile-empty-text">Загрузка...</p>
+        </section>
+    }
+    else if (!UserState.IsAuthorized)
     {
         <section class="profile-card profile-empty-card">
             <h1 class="profile-empty-title">Профиль</h1>
             <p class="profile-empty-text">Войдите в аккаунт, чтобы открыть профиль.</p>
             <button class="profile-login-button" @onclick="NavigateToLogin" type="button">Войти</button>
-        </section>
-    }
-    else if (_isLoading)
-    {
-        <section class="profile-card profile-empty-card">
-            <h1 class="profile-empty-title">Профиль</h1>
-            <p class="profile-empty-text">Загрузка...</p>
         </section>
     }
     else if (!string.IsNullOrWhiteSpace(_errorMessage))
@@ -93,6 +93,12 @@
     {
         _profile = null;
         _errorMessage = null;
+
+        if (!UserState.IsInitialized)
+        {
+            _isLoading = true;
+            return;
+        }
 
         if (!UserState.IsAuthorized)
         {

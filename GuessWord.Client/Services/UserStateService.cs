@@ -1,10 +1,11 @@
-﻿namespace GuessWord.Client.Services
+namespace GuessWord.Client.Services
 {
     public class UserStateService
     {
         public string? Token { get; private set; }
         public string? Login { get; private set; }
         public string? Name { get; private set; }
+        public bool IsInitialized { get; private set; }
 
         public bool IsAuthorized => !string.IsNullOrWhiteSpace(Token);
 
@@ -23,6 +24,12 @@
             Token = null;
             Login = null;
             Name = null;
+            NotifyStateChanged();
+        }
+
+        public void MarkInitialized()
+        {
+            IsInitialized = true;
             NotifyStateChanged();
         }
 
