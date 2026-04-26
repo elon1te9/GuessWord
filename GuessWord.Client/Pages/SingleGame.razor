@@ -127,6 +127,7 @@
     private bool isSubmitting;
     private bool isStartingGame;
     private bool showNotFoundCard;
+    private bool shouldFocusGuessInput;
     private string guessWord = string.Empty;
     private string pageMessage = string.Empty;
     private ElementReference guessInputRef;
@@ -138,6 +139,19 @@
     {
         UserState.OnChange += HandleUserStateChanged;
         await LoadCurrentGameAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!shouldFocusGuessInput)
+            return;
+
+        shouldFocusGuessInput = false;
+
+        if (currentGame is null || currentGame.Status == GameStatus.Finished || isSubmitting)
+            return;
+
+        await guessInputRef.FocusAsync();
     }
 
     private void HandleUserStateChanged()
@@ -228,7 +242,7 @@
         if (updatedGame is null)
         {
             pageMessage = "Не удалось отправить слово.";
-            await TryFocusGuessInputAsync();
+            shouldFocusGuessInput = true;
             return;
         }
 
@@ -242,7 +256,7 @@
         {
             lastSubmittedAttempt = null;
             showNotFoundCard = false;
-            await TryFocusGuessInputAsync();
+            shouldFocusGuessInput = true;
             return;
         }
 
@@ -251,7 +265,7 @@
             lastSubmittedAttempt = null;
             showNotFoundCard = true;
             pageMessage = string.Empty;
-            await TryFocusGuessInputAsync();
+            shouldFocusGuessInput = true;
             return;
         }
 
@@ -260,14 +274,14 @@
             lastSubmittedAttempt = latestAttempt;
             showNotFoundCard = false;
             pageMessage = "Это слово уже было введено.";
-            await TryFocusGuessInputAsync();
+            shouldFocusGuessInput = true;
             return;
         }
 
         lastSubmittedAttempt = latestAttempt;
         showNotFoundCard = false;
         pageMessage = string.Empty;
-        await TryFocusGuessInputAsync();
+        shouldFocusGuessInput = true;
     }
 
     private async Task GiveUpAsync()
@@ -309,14 +323,6 @@
             .OrderBy(attempt => attempt.Rank)
             .ThenBy(attempt => attempt.Word)
             .ToList();
-    }
-
-    private async Task TryFocusGuessInputAsync()
-    {
-        if (currentGame is null || currentGame.Status == GameStatus.Finished || isSubmitting)
-            return;
-
-        await InvokeAsync(async () => await guessInputRef.FocusAsync());
     }
 
     public void Dispose()

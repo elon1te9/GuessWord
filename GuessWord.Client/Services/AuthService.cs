@@ -76,6 +76,11 @@ namespace GuessWord.Client.Services
             _userStateService.ClearUser();
         }
 
+        public async Task ForceLogoutAsync()
+        {
+            await Logout();
+        }
+
         private async Task SaveUserData(AuthResponseDto authData)
         {
             await _localStorageService.SetItemAsync("token", authData.Token);
