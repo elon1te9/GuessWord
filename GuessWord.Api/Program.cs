@@ -1,4 +1,5 @@
 using GuessWord.Api.Data;
+using GuessWord.Api.Hubs;
 using GuessWord.Api.Interfaces;
 using GuessWord.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -10,6 +11,7 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddMemoryCache(options =>
@@ -68,6 +70,7 @@ app.UseAuthorization();
 app.UseCors("AllowBlazor");
 
 app.MapControllers();
+app.MapHub<GameHub>("/hubs/game");
 
 using (var scope = app.Services.CreateScope())
 {

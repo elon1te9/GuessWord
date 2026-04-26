@@ -1,0 +1,206 @@
+@page "/game/room/{Code}"
+@implements IAsyncDisposable
+@using GuessWord.Shared.Enums
+@using GuessWord.Shared.Responses
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject GuessWord.Client.Services.UserStateService UserState
+@inject GuessWord.Client.Services.RoomService RoomService
+
+<PageTitle>Комната 1 на 1</PageTitle>
+
+<div class="game-page">
+    @if (isLoading)
+    {
+        <p class="game-message">Загрузка комнаты...</p>
+    }
+    else if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <section class="game-card game-header">
+            <h1 class="game-title">Комната 1 на 1</h1>
+            <p class="game-message">@errorMessage</p>
+            <button class="game-button game-button-light" @onclick="NavigateToLobby" type="button">
+                Назад в лобби
+            </button>
+        </section>
+    }
+    else if (room is not null)
+    {
+        <section class="game-card game-header">
+            <h1 class="game-title">Комната 1 на 1</h1>
+            <p class="game-subtitle">Код комнаты: @room.Code</p>
+        </section>
+
+        <section class="game-card">
+            <h2 class="game-title">Участники</h2>
+            <p class="game-message">Host: @room.HostName</p>
+            <p class="game-message">Guest: @(string.IsNullOrWhiteSpace(room.GuestName) ? "Ожидание соперника..." : room.GuestName)</p>
+        </section>
+
+        <section class="game-card">
+            <h2 class="game-title">Статус</h2>
+            <p class="game-mode-status">@GetRoomStatusText(room.Status)</p>
+
+            @if (room.IsHost)
+            {
+                <button class="game-button game-button-dark"
+                        disabled
+                        type="button">
+                    Начать игру
+                </button>
+
+                <p class="game-message">
+                    @(room.CanStartGame
+                        ? "Старт игры будет добавлен на следующем шаге."
+                        : "Ожидаем второго игрока.")
+                </p>
+            }
+            else
+            {
+                <p class="game-message">Ожидаем, когда создатель комнаты начнёт игру.</p>
+            }
+        </section>
+
+        <section class="game-card">
+            <button class="game-button game-button-light"
+                    @onclick="LeaveRoomAsync"
+                    disabled="@isLeaving"
+                    type="button">
+                @(isLeaving ? "Выход..." : "Выйти из комнаты")
+            </button>
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Code { get; set; } = string.Empty;
+
+    private RoomResponseDto? room;
+    private HubConnection? hubConnection;
+    private bool isLoading = true;
+    private bool isLeaving;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UserState.IsAuthorized)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadRoomAsync();
+
+        if (room is not null)
+            await InitializeSignalRAsync();
+    }
+
+    private async Task LoadRoomAsync()
+    {
+        var loadedRoom = await RoomService.GetRoomAsync(Code);
+
+        if (loadedRoom is null)
+        {
+            room = null;
+            errorMessage = "Комната не найдена или доступ запрещён.";
+            isLoading = false;
+            return;
+        }
+
+        room = loadedRoom;
+        errorMessage = null;
+        isLoading = false;
+    }
+
+    private async Task InitializeSignalRAsync()
+    {
+        if (room is null)
+            return;
+
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/game"), options =>
+            {
+                options.AccessTokenProvider = () => Task.FromResult(UserState.Token);
+            })
+            .WithAutomaticReconnect()
+            .Build();
+
+        hubConnection.On<RoomResponseDto>("RoomUpdated", updatedRoom =>
+        {
+            room = updatedRoom;
+            return InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<string>("RoomClosed", _ =>
+        {
+            return InvokeAsync(() => Navigation.NavigateTo("/game"));
+        });
+
+        hubConnection.On<int>("MultiplayerGameStarted", gameId =>
+        {
+            return InvokeAsync(() => Navigation.NavigateTo($"/game/multiplayer/{gameId}"));
+        });
+
+        await hubConnection.StartAsync();
+        await hubConnection.InvokeAsync("JoinRoomGroup", room.Code);
+    }
+
+    private async Task LeaveRoomAsync()
+    {
+        if (room is null || isLeaving)
+            return;
+
+        isLeaving = true;
+
+        var roomCode = room.Code;
+        await RoomService.LeaveRoomAsync(roomCode);
+
+        if (hubConnection is not null)
+        {
+            await hubConnection.InvokeAsync("LeaveRoomGroup", roomCode);
+            await hubConnection.StopAsync();
+        }
+
+        isLeaving = false;
+        Navigation.NavigateTo("/game");
+    }
+
+    private void NavigateToLobby()
+    {
+        Navigation.NavigateTo("/game");
+    }
+
+    private static string GetRoomStatusText(RoomStatus status)
+    {
+        return status switch
+        {
+            RoomStatus.Waiting => "Ожидание соперника",
+            RoomStatus.Full => "Готово к старту",
+            RoomStatus.InGame => "Игра запущена",
+            RoomStatus.Closed => "Комната закрыта",
+            _ => "Неизвестный статус"
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is null)
+            return;
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(Code) &&
+                hubConnection.State is HubConnectionState.Connected or HubConnectionState.Reconnecting)
+            {
+                await hubConnection.InvokeAsync("LeaveRoomGroup", Code);
+            }
+        }
+        catch
+        {
+        }
+
+        await hubConnection.DisposeAsync();
+    }
+}

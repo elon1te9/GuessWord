@@ -64,7 +64,7 @@
                                 <div>@match.Result</div>
                                 <div>@match.AttemptsCount</div>
                                 <div>@match.SecretWord</div>
-                                <div>@match.OpponentName</div>
+                                <div>@(string.IsNullOrWhiteSpace(match.OpponentName) ? "-" : match.OpponentName)</div>
                             </div>
                         }
                     </div>

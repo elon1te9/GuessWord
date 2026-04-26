@@ -91,6 +91,83 @@ namespace GuessWord.Api.Services
             return await BuildGameResponseAsync(game.Id, userId);
         }
 
+        public async Task<int?> StartMultiplayerGameAsync(int userId, string roomCode)
+        {
+            var normalizedRoomCode = roomCode.Trim().ToUpperInvariant();
+            if (string.IsNullOrWhiteSpace(normalizedRoomCode))
+                return null;
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
+            var room = await _context.Rooms
+                .FirstOrDefaultAsync(r => r.Code == normalizedRoomCode);
+
+            if (room is null ||
+                room.HostUserId != userId ||
+                !room.GuestUserId.HasValue ||
+                room.Status != RoomStatus.Full ||
+                room.GameId.HasValue)
+            {
+                await transaction.RollbackAsync();
+                return null;
+            }
+
+            var secretWordsQuery = _context.Words
+                .AsNoTracking()
+                .Where(w => w.CanBeSecret && w.Embedding != null);
+
+            var secretWordsCount = await secretWordsQuery.CountAsync();
+            if (secretWordsCount == 0)
+                throw new Exception("РЎРµРєСЂРµС‚РЅС‹Рµ СЃР»РѕРІР° РЅРµ РЅР°Р№РґРµРЅС‹.");
+
+            var randomIndex = Random.Shared.Next(secretWordsCount);
+
+            var secretWord = await secretWordsQuery
+                .OrderBy(w => w.Id)
+                .Skip(randomIndex)
+                .FirstAsync();
+
+            var game = new Game
+            {
+                Mode = GameMode.Multiplayer,
+                Status = GameStatus.InProgress,
+                SecretWordId = secretWord.Id
+            };
+
+            var hostPlayer = new GamePlayer
+            {
+                Game = game,
+                UserId = room.HostUserId,
+                AttemptsCount = 0,
+                Result = GamePlayerResult.Playing,
+                IsActiveSingleGame = false
+            };
+
+            var guestPlayer = new GamePlayer
+            {
+                Game = game,
+                UserId = room.GuestUserId.Value,
+                AttemptsCount = 0,
+                Result = GamePlayerResult.Playing,
+                IsActiveSingleGame = false
+            };
+
+            _context.Games.Add(game);
+            _context.GamePlayers.AddRange(hostPlayer, guestPlayer);
+
+            await _context.SaveChangesAsync();
+
+            room.GameId = game.Id;
+            room.Status = RoomStatus.InGame;
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            await _rankService.PrepareRankingAsync(secretWord.Id);
+
+            return game.Id;
+        }
+
         public async Task<SingleGameResponseDto?> GetCurrentSingleGameAsync(int userId)
         {
             var currentGame = await GetCurrentGameEntityAsync(userId);
@@ -241,26 +318,54 @@ namespace GuessWord.Api.Services
 
         public async Task<List<GameHistoryItemResponseDto>> GetHistoryAsync(int userId)
         {
-            return await _context.GamePlayers
+            var gamePlayers = await _context.GamePlayers
                 .AsNoTracking()
                 .Where(gp => gp.UserId == userId && gp.Game.Status == GameStatus.Finished)
                 .Include(gp => gp.Game)
                     .ThenInclude(g => g.SecretWord)
+                .Include(gp => gp.Game)
+                    .ThenInclude(g => g.Players)
+                        .ThenInclude(p => p.User)
                 .OrderByDescending(gp => gp.Game.FinishedAt ?? gp.Game.CreatedAt)
-                .Select(gp => new GameHistoryItemResponseDto
-                {
-                    Date = gp.Game.FinishedAt ?? gp.Game.CreatedAt,
-                    GameType = gp.Game.Mode == GameMode.Single ? "Сингл" : "Мультиплеер",
-                    Result = gp.Result == GamePlayerResult.Won
-                        ? "Победа"
-                        : gp.Result == GamePlayerResult.GaveUp || gp.Result == GamePlayerResult.Lost
-                            ? "Поражение"
-                            : "Завершена",
-                    AttemptsCount = gp.AttemptsCount,
-                    SecretWord = gp.Game.SecretWord.Text,
-                    OpponentName = "-"
-                })
                 .ToListAsync();
+
+            return gamePlayers
+                .Select(gp =>
+                {
+                    var game = gp.Game;
+                    var opponent = game.Mode == GameMode.Multiplayer
+                        ? game.Players.FirstOrDefault(p => p.UserId != userId)
+                        : null;
+
+                    var opponentName = "-";
+
+                    if (opponent?.User is not null)
+                    {
+                        opponentName = string.IsNullOrWhiteSpace(opponent.User.Name)
+                            ? opponent.User.Login
+                            : opponent.User.Name;
+                    }
+
+                    var result = gp.Result switch
+                    {
+                        GamePlayerResult.Won => "Победа",
+                        GamePlayerResult.GaveUp => "Сдался",
+                        GamePlayerResult.Lost => "Поражение",
+                        _ when game.WinnerUserId.HasValue && game.WinnerUserId.Value != userId => "Поражение",
+                        _ => "Завершена"
+                    };
+
+                    return new GameHistoryItemResponseDto
+                    {
+                        Date = game.FinishedAt ?? game.CreatedAt,
+                        GameType = game.Mode == GameMode.Single ? "Сингл" : "Мультиплеер",
+                        Result = result,
+                        AttemptsCount = gp.AttemptsCount,
+                        SecretWord = game.SecretWord.Text,
+                        OpponentName = game.Mode == GameMode.Single ? "-" : opponentName
+                    };
+                })
+                .ToList();
         }
 
         private async Task<Game?> GetCurrentGameEntityAsync(int userId)

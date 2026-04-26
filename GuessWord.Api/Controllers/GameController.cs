@@ -1,7 +1,9 @@
+using GuessWord.Api.Hubs;
 using GuessWord.Api.Interfaces;
 using GuessWord.Shared.Requests;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
 
 namespace GuessWord.Api.Controllers
@@ -12,10 +14,12 @@ namespace GuessWord.Api.Controllers
     public class GameController : ControllerBase
     {
         private readonly IGameService _gameService;
+        private readonly IHubContext<GameHub> _hubContext;
 
-        public GameController(IGameService gameService)
+        public GameController(IGameService gameService, IHubContext<GameHub> hubContext)
         {
             _gameService = gameService;
+            _hubContext = hubContext;
         }
 
         [HttpPost("single/start")]
@@ -24,6 +28,23 @@ namespace GuessWord.Api.Controllers
             var userId = GetUserId();
             var result = await _gameService.StartSingleGameAsync(userId);
             return Ok(result);
+        }
+
+        [HttpPost("multiplayer/start/{roomCode}")]
+        public async Task<IActionResult> StartMultiplayerGame(string roomCode)
+        {
+            var userId = GetUserId();
+            var gameId = await _gameService.StartMultiplayerGameAsync(userId, roomCode);
+
+            if (!gameId.HasValue)
+                return BadRequest("Не удалось запустить игру.");
+
+            var normalizedRoomCode = NormalizeRoomCode(roomCode);
+
+            await _hubContext.Clients.Group($"room-{normalizedRoomCode}")
+                .SendAsync("MultiplayerGameStarted", gameId.Value);
+
+            return Ok(gameId.Value);
         }
 
         [HttpGet("single/current")]
@@ -71,6 +92,11 @@ namespace GuessWord.Api.Controllers
                 throw new Exception("Пользователь не авторизован.");
 
             return userId;
+        }
+
+        private static string NormalizeRoomCode(string roomCode)
+        {
+            return roomCode.Trim().ToUpperInvariant();
         }
     }
 }

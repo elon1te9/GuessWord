@@ -6,6 +6,7 @@ namespace GuessWord.Api.Interfaces
     public interface IGameService
     {
         Task<SingleGameResponseDto> StartSingleGameAsync(int userId);
+        Task<int?> StartMultiplayerGameAsync(int userId, string roomCode);
         Task<SingleGameResponseDto?> GetCurrentSingleGameAsync(int userId);
         Task<SingleGameResponseDto> SubmitGuessAsync(int userId, SubmitGuessRequestDto request);
         Task<SingleGameResponseDto> GiveUpSingleGameAsync(int userId, int gameId);

@@ -1,0 +1,388 @@
+@page "/game/multiplayer/{GameId:int}"
+@implements IAsyncDisposable
+@using GuessWord.Client.Components.Game
+@using GuessWord.Shared.Enums
+@using GuessWord.Shared.Responses
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Navigation
+@inject GuessWord.Client.Services.UserStateService UserState
+@inject GuessWord.Client.Services.GameService GameService
+
+<PageTitle>Игра 1 на 1</PageTitle>
+
+<div class="single-game-page">
+    @if (isLoading)
+    {
+        <p class="single-game-message">Загрузка...</p>
+    }
+    else if (!UserState.IsAuthorized)
+    {
+        <section class="single-game-card single-game-empty-card">
+            <h1 class="single-game-title">Игра 1 на 1</h1>
+            <p class="single-game-message">Войдите в аккаунт, чтобы играть.</p>
+            <button class="single-game-button single-game-button-light" @onclick="NavigateToLogin" type="button">
+                Войти
+            </button>
+        </section>
+    }
+    else if (currentGame is null)
+    {
+        <section class="single-game-card single-game-empty-card">
+            <h1 class="single-game-title">Игра не найдена</h1>
+            <p class="single-game-message">Не удалось загрузить multiplayer-игру.</p>
+
+            @if (!string.IsNullOrWhiteSpace(pageMessage))
+            {
+                <p class="single-game-message">@pageMessage</p>
+            }
+
+            <button class="single-game-button single-game-button-dark" @onclick="NavigateToLobby" type="button">
+                В лобби
+            </button>
+        </section>
+    }
+    else
+    {
+        <section class="single-game-card single-game-header">
+            <div class="single-game-header-main">
+                <div>
+                    <h1 class="single-game-title">Игра 1 на 1</h1>
+                    <p class="single-game-subtitle">Общий раунд против соперника</p>
+                </div>
+
+                <div class="single-game-header-actions">
+                    <div class="single-game-meta">Попытки: @currentGame.AttemptsCount</div>
+                    <button class="single-game-button single-game-button-light" @onclick="NavigateToLobby" type="button">
+                        В лобби
+                    </button>
+                </div>
+            </div>
+
+            <form class="single-game-form" @onsubmit="SubmitGuessAsync" @onsubmit:preventDefault="true">
+                <input class="single-game-input"
+                       @ref="guessInputRef"
+                       @bind="guessWord"
+                       @bind:event="oninput"
+                       disabled="@(isSubmitting || currentGame.Status == GameStatus.Finished)"
+                       placeholder="Введите слово" />
+
+                <button class="single-game-button single-game-button-dark"
+                        disabled="@(isSubmitting || currentGame.Status == GameStatus.Finished)"
+                        type="submit">
+                    @(isSubmitting ? "Проверка..." : "Проверить")
+                </button>
+            </form>
+
+            @if (!string.IsNullOrWhiteSpace(pageMessage) && pageMessage != "Это слово уже было введено.")
+            {
+                <p class="single-game-message">@pageMessage</p>
+            }
+        </section>
+
+        <section class="single-game-card">
+            <h2 class="single-game-title">Соперник</h2>
+            <div class="single-game-message">@currentGame.OpponentName</div>
+            <div class="single-game-message">Лучший ранг: @(currentGame.OpponentBestRank?.ToString() ?? "—")</div>
+            <div class="single-game-message">Попытки: @currentGame.OpponentAttemptsCount</div>
+        </section>
+
+        @if (lastSubmittedAttempt is not null || showNotFoundCard || displayAttempts.Count > 0)
+        {
+            <section class="single-game-card single-game-attempts-card">
+                @if (lastSubmittedAttempt is not null)
+                {
+                    <AttemptCard Attempt="lastSubmittedAttempt"
+                                 IsFeatured="true"
+                                 IsActive="true" />
+                }
+                else if (showNotFoundCard)
+                {
+                    <div class="single-game-word-not-found">
+                        такого слова не найдено
+                    </div>
+                }
+
+                @if (displayAttempts.Count > 0)
+                {
+                    <AttemptList Attempts="displayAttempts"
+                                 LastSubmittedAttempt="lastSubmittedAttempt" />
+                }
+            </section>
+        }
+    }
+</div>
+
+@if (currentGame is not null && currentGame.Status == GameStatus.Finished)
+{
+    <div class="single-game-result-overlay">
+        <div class="single-game-result-modal">
+            <div class="single-game-result-pill">Раунд завершён</div>
+            <h2 class="single-game-result-title">@GetResultTitle()</h2>
+            <p class="single-game-result-text">@GetResultText()</p>
+
+            <div class="single-game-result-secret">
+                <div class="single-game-result-secret-label">Загаданное слово</div>
+                <div class="single-game-result-secret-word">@currentGame.SecretWord</div>
+            </div>
+
+            <div class="single-game-result-stats">
+                <div class="single-game-result-stat">
+                    <div class="single-game-result-stat-label">Попытки</div>
+                    <div class="single-game-result-stat-value">@currentGame.AttemptsCount</div>
+                </div>
+
+                <div class="single-game-result-stat">
+                    <div class="single-game-result-stat-label">Результат</div>
+                    <div class="single-game-result-stat-value">@GetResultValue()</div>
+                </div>
+            </div>
+
+            <div class="single-game-result-actions">
+                <button class="single-game-button single-game-button-dark" @onclick="NavigateToLobby" type="button">
+                    В лобби
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int GameId { get; set; }
+
+    private bool isLoading = true;
+    private bool isSubmitting;
+    private bool showNotFoundCard;
+    private bool shouldFocusGuessInput;
+    private string guessWord = string.Empty;
+    private string pageMessage = string.Empty;
+    private ElementReference guessInputRef;
+    private MultiplayerGameResponseDto? currentGame;
+    private GameAttemptResponseDto? lastSubmittedAttempt;
+    private List<GameAttemptResponseDto> displayAttempts = new();
+    private HubConnection? hubConnection;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UserState.IsAuthorized)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadGameAsync();
+
+        if (currentGame is not null)
+            await InitializeSignalRAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!shouldFocusGuessInput)
+            return;
+
+        shouldFocusGuessInput = false;
+
+        if (currentGame is null || currentGame.Status == GameStatus.Finished || isSubmitting)
+            return;
+
+        await guessInputRef.FocusAsync();
+    }
+
+    private async Task LoadGameAsync()
+    {
+        pageMessage = string.Empty;
+        guessWord = string.Empty;
+        lastSubmittedAttempt = null;
+        showNotFoundCard = false;
+
+        currentGame = await GameService.GetMultiplayerGameAsync(GameId);
+        UpdateDisplayAttempts();
+        isLoading = false;
+
+        if (currentGame is null)
+            pageMessage = "Страница готова, но backend endpoint multiplayer-игры может быть ещё не реализован.";
+    }
+
+    private async Task InitializeSignalRAsync()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/game"), options =>
+            {
+                options.AccessTokenProvider = () => Task.FromResult(UserState.Token);
+            })
+            .WithAutomaticReconnect()
+            .Build();
+
+        hubConnection.On<MultiplayerGameResponseDto>("MultiplayerGameUpdated", updatedGame =>
+        {
+            currentGame = updatedGame;
+            UpdateDisplayAttempts();
+            return InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On("OpponentGuessSubmitted", async () =>
+        {
+            var updatedGame = await GameService.GetMultiplayerGameAsync(GameId);
+
+            if (updatedGame is null)
+                return;
+
+            currentGame = updatedGame;
+            UpdateDisplayAttempts();
+            await InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<MultiplayerGameResponseDto>("MultiplayerGameFinished", finishedGame =>
+        {
+            currentGame = finishedGame;
+            UpdateDisplayAttempts();
+            return InvokeAsync(StateHasChanged);
+        });
+
+        await hubConnection.StartAsync();
+        await hubConnection.InvokeAsync("JoinGameGroup", GameId);
+    }
+
+    private void NavigateToLogin()
+    {
+        Navigation.NavigateTo("/login");
+    }
+
+    private void NavigateToLobby()
+    {
+        Navigation.NavigateTo("/game");
+    }
+
+    private async Task SubmitGuessAsync()
+    {
+        if (currentGame is null || isSubmitting || currentGame.Status == GameStatus.Finished)
+            return;
+
+        var trimmedWord = guessWord.Trim();
+
+        if (string.IsNullOrWhiteSpace(trimmedWord))
+        {
+            pageMessage = "Введите слово.";
+            return;
+        }
+
+        isSubmitting = true;
+        pageMessage = string.Empty;
+
+        var updatedGame = await GameService.SubmitMultiplayerGuessAsync(GameId, trimmedWord);
+
+        isSubmitting = false;
+
+        if (updatedGame is null)
+        {
+            pageMessage = "Не удалось отправить слово.";
+            shouldFocusGuessInput = true;
+            return;
+        }
+
+        currentGame = updatedGame;
+        UpdateDisplayAttempts();
+        guessWord = string.Empty;
+
+        var latestAttempt = updatedGame.LastAttempt;
+
+        if (latestAttempt is null)
+        {
+            lastSubmittedAttempt = null;
+            showNotFoundCard = false;
+            shouldFocusGuessInput = true;
+            return;
+        }
+
+        if (!latestAttempt.IsValid)
+        {
+            lastSubmittedAttempt = null;
+            showNotFoundCard = true;
+            pageMessage = string.Empty;
+            shouldFocusGuessInput = true;
+            return;
+        }
+
+        if (updatedGame.LastAttemptWasRepeated)
+        {
+            lastSubmittedAttempt = latestAttempt;
+            showNotFoundCard = false;
+            pageMessage = "Это слово уже было введено.";
+            shouldFocusGuessInput = true;
+            return;
+        }
+
+        lastSubmittedAttempt = latestAttempt;
+        showNotFoundCard = false;
+        pageMessage = string.Empty;
+        shouldFocusGuessInput = true;
+    }
+
+    private void UpdateDisplayAttempts()
+    {
+        displayAttempts = BuildDisplayAttempts();
+    }
+
+    private List<GameAttemptResponseDto> BuildDisplayAttempts()
+    {
+        if (currentGame is null)
+            return [];
+
+        return currentGame.Attempts
+            .Where(attempt => attempt.IsValid && attempt.Rank.HasValue)
+            .GroupBy(attempt => attempt.Word.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.OrderBy(attempt => attempt.Rank).ThenBy(attempt => attempt.CreatedAt).First())
+            .OrderBy(attempt => attempt.Rank)
+            .ThenBy(attempt => attempt.Word)
+            .ToList();
+    }
+
+    private string GetResultTitle()
+    {
+        if (currentGame is null)
+            return "Игра завершена";
+
+        return currentGame.IsWinner || currentGame.PlayerResult == GamePlayerResult.Won
+            ? "Победа!"
+            : "Поражение";
+    }
+
+    private string GetResultText()
+    {
+        if (currentGame is null)
+            return "Раунд завершён";
+
+        return currentGame.IsWinner || currentGame.PlayerResult == GamePlayerResult.Won
+            ? "Ты обошёл соперника"
+            : "Соперник оказался ближе";
+    }
+
+    private string GetResultValue()
+    {
+        if (currentGame is null)
+            return "Завершена";
+
+        return currentGame.IsWinner || currentGame.PlayerResult == GamePlayerResult.Won
+            ? "Победа"
+            : "Поражение";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is null)
+            return;
+
+        try
+        {
+            if (hubConnection.State is HubConnectionState.Connected or HubConnectionState.Reconnecting)
+                await hubConnection.InvokeAsync("LeaveGameGroup", GameId);
+        }
+        catch
+        {
+        }
+
+        await hubConnection.DisposeAsync();
+    }
+}

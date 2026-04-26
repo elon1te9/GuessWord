@@ -42,4 +42,20 @@ public class GameService
     {
         return await _apiRequestService.GetAsync<List<GameHistoryItemResponseDto>>("api/game/history");
     }
+
+    public async Task<MultiplayerGameResponseDto?> GetMultiplayerGameAsync(int gameId)
+    {
+        return await _apiRequestService.GetAsync<MultiplayerGameResponseDto>($"api/game/multiplayer/{gameId}");
+    }
+
+    public async Task<MultiplayerGameResponseDto?> SubmitMultiplayerGuessAsync(int gameId, string word)
+    {
+        var request = new SubmitGuessRequestDto
+        {
+            GameId = gameId,
+            Word = word
+        };
+
+        return await _apiRequestService.PostAsync<SubmitGuessRequestDto, MultiplayerGameResponseDto>("api/game/multiplayer/guess", request);
+    }
 }
