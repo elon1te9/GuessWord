@@ -34,9 +34,15 @@
     protected override void OnInitialized()
     {
         UserState.OnChange += HandleUserStateChanged;
+        Nav.LocationChanged += HandleLocationChanged;
     }
 
     private void HandleUserStateChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         InvokeAsync(StateHasChanged);
     }
@@ -68,17 +74,29 @@
 
     private bool IsActive(string url)
     {
-        var relativePath = Nav.ToBaseRelativePath(Nav.Uri).Trim('/');
-        var current = string.IsNullOrEmpty(relativePath) ? "/" : "/" + relativePath;
+        var current = GetCurrentPath();
 
         return url == "/"
             ? current == "/"
-            : current.StartsWith(url, StringComparison.OrdinalIgnoreCase);
+            : string.Equals(current, url, StringComparison.OrdinalIgnoreCase)
+              || current.StartsWith($"{url}/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string GetCurrentPath()
+    {
+        var relativePath = Nav.ToBaseRelativePath(Nav.Uri);
+
+        if (string.IsNullOrWhiteSpace(relativePath))
+            return "/";
+
+        var pathWithoutQuery = relativePath.Split('?', '#')[0].Trim('/');
+        return string.IsNullOrEmpty(pathWithoutQuery) ? "/" : "/" + pathWithoutQuery;
     }
 
     public void Dispose()
     {
         UserState.OnChange -= HandleUserStateChanged;
+        Nav.LocationChanged -= HandleLocationChanged;
     }
 
     private sealed record NavItem(string Url, string Icon);

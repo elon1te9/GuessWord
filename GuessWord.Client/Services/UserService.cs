@@ -15,4 +15,9 @@ public class UserService
     {
         return await _apiRequestService.GetAsync<UserProfileResponseDto>("api/user/profile");
     }
+
+    public async Task<LeaderboardResponseDto?> GetLeaderboardAsync()
+    {
+        return await _apiRequestService.GetAsync<LeaderboardResponseDto>("api/user/leaderboard");
+    }
 }

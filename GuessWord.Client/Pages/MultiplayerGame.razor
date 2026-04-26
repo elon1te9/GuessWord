@@ -49,12 +49,16 @@
             <div class="single-game-header-main">
                 <div>
                     <h1 class="single-game-title">Игра 1 на 1</h1>
-                    <p class="single-game-subtitle">Общий раунд против соперника</p>
+                    <p class="single-game-subtitle multiplayer-game-subtitle">
+                        Соперник: <span class="multiplayer-game-subtitle-name">@GetOpponentName()</span>
+                        <span class="multiplayer-game-subtitle-separator">·</span>
+                        Лучший ранг: <span class="multiplayer-game-subtitle-rank @GetOpponentBestRankClass()">@(GetOpponentBestRank()?.ToString() ?? "—")</span>
+                    </p>
                 </div>
 
                 <div class="single-game-header-actions">
                     <div class="single-game-meta">Попытки: @GetAttemptsCount()</div>
-                    <button class="single-game-button single-game-button-danger"
+                    <button class="single-game-button single-game-button-danger single-game-button-steady"
                             @onclick="GiveUpAsync"
                             disabled="@(isSubmitting || currentGame.Status == GameStatus.Finished)"
                             type="button">
@@ -79,10 +83,10 @@
                        disabled="@(isSubmitting || currentGame.Status == GameStatus.Finished)"
                        placeholder="Введите слово" />
 
-                <button class="single-game-button single-game-button-dark"
+                <button class="single-game-button single-game-button-dark single-game-button-steady"
                         disabled="@(isSubmitting || currentGame.Status == GameStatus.Finished)"
                         type="submit">
-                    @(isSubmitting ? "Проверка..." : "Проверить")
+                    Проверить
                 </button>
             </form>
 
@@ -92,52 +96,13 @@
             }
         </section>
 
-        @if (isOpponentPanelVisible)
-        {
-            <section class="single-game-card multiplayer-opponent-card">
-                <div class="multiplayer-opponent-header">
-                    <div class="multiplayer-opponent-main">
-                        <h2 class="multiplayer-opponent-title">Соперник</h2>
-                        <p class="multiplayer-opponent-name">@GetOpponentName()</p>
-                    </div>
-
-                    <button class="single-game-button single-game-button-light multiplayer-opponent-collapse-button"
-                            @onclick="ToggleOpponentPanel"
-                            type="button">
-                        Скрыть
-                    </button>
-                </div>
-
-                <div class="multiplayer-opponent-stats">
-                    <div class="multiplayer-stat-card">
-                        <div class="multiplayer-stat-label">Лучший ранг</div>
-                        <div class="multiplayer-stat-value">@(GetOpponentBestRank()?.ToString() ?? "—")</div>
-                    </div>
-
-                    <div class="multiplayer-stat-card">
-                        <div class="multiplayer-stat-label">Попытки</div>
-                        <div class="multiplayer-stat-value">@GetOpponentAttemptsCount()</div>
-                    </div>
-                </div>
-            </section>
-        }
-        else
-        {
-            <div class="multiplayer-opponent-toggle-wrap">
-                <button class="single-game-button single-game-button-light multiplayer-opponent-toggle-button"
-                        @onclick="ToggleOpponentPanel"
-                        type="button">
-                    Показать соперника
-                </button>
-            </div>
-        }
-
         @if (lastSubmittedAttempt is not null || showNotFoundCard || displayAttempts.Count > 0)
         {
             <section class="single-game-card single-game-attempts-card">
                 @if (lastSubmittedAttempt is not null)
                 {
-                    <AttemptCard Attempt="lastSubmittedAttempt"
+                    <AttemptCard @key="GetAttemptKey(lastSubmittedAttempt)"
+                                 Attempt="lastSubmittedAttempt"
                                  IsFeatured="true"
                                  IsActive="true" />
                 }
@@ -200,7 +165,6 @@
     private bool isSubmitting;
     private bool showNotFoundCard;
     private bool shouldFocusGuessInput;
-    private bool isOpponentPanelVisible = true;
     private string guessWord = string.Empty;
     private string pageMessage = string.Empty;
     private string? signalRErrorMessage;
@@ -295,11 +259,6 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private void ToggleOpponentPanel()
-    {
-        isOpponentPanelVisible = !isOpponentPanelVisible;
-    }
-
     private void NavigateToLogin()
     {
         Navigation.NavigateTo("/login");
@@ -337,40 +296,34 @@
             return;
         }
 
-        await LoadGameState(GameId);
-        guessWord = string.Empty;
-
         var latestAttempt = updatedGame.LastAttempt;
 
         if (latestAttempt is null)
         {
             lastSubmittedAttempt = null;
             showNotFoundCard = false;
-            shouldFocusGuessInput = true;
-            return;
         }
-
-        if (!latestAttempt.IsValid)
+        else if (!latestAttempt.IsValid)
         {
             lastSubmittedAttempt = null;
             showNotFoundCard = true;
             pageMessage = string.Empty;
-            shouldFocusGuessInput = true;
-            return;
         }
-
-        if (updatedGame.LastAttemptWasRepeated)
+        else if (updatedGame.LastAttemptWasRepeated)
         {
             lastSubmittedAttempt = latestAttempt;
             showNotFoundCard = false;
             pageMessage = "Это слово уже было введено.";
-            shouldFocusGuessInput = true;
-            return;
+        }
+        else
+        {
+            lastSubmittedAttempt = latestAttempt;
+            showNotFoundCard = false;
+            pageMessage = string.Empty;
         }
 
-        lastSubmittedAttempt = latestAttempt;
-        showNotFoundCard = false;
-        pageMessage = string.Empty;
+        await LoadGameState(GameId, resetTransientState: false);
+        guessWord = string.Empty;
         shouldFocusGuessInput = true;
     }
 
@@ -430,6 +383,11 @@
         return currentGame?.Players.FirstOrDefault(player => player.UserId == UserState.UserId);
     }
 
+    private static string GetAttemptKey(GameAttemptResponseDto attempt)
+    {
+        return $"{attempt.Word}|{attempt.Rank}|{attempt.CreatedAt:O}";
+    }
+
     private GamePlayerStateDto? GetOpponent()
     {
         return currentGame?.Players.FirstOrDefault(player => player.UserId != UserState.UserId);
@@ -445,16 +403,28 @@
         return GetOpponent()?.Username ?? "Соперник";
     }
 
-    private int GetOpponentAttemptsCount()
-    {
-        return GetOpponent()?.Attempts.Count ?? 0;
-    }
-
     private int? GetOpponentBestRank()
     {
         return GetOpponent()?.Attempts
             .Where(attempt => attempt.Rank.HasValue)
             .Min(attempt => attempt.Rank);
+    }
+
+    private string GetOpponentBestRankClass()
+    {
+        var rank = GetOpponentBestRank();
+
+        if (!rank.HasValue)
+            return string.Empty;
+
+        return rank.Value switch
+        {
+            <= 100 => "multiplayer-game-subtitle-rank-hot",
+            <= 1000 => "multiplayer-game-subtitle-rank-warm",
+            <= 5000 => "multiplayer-game-subtitle-rank-medium",
+            <= 15000 => "multiplayer-game-subtitle-rank-cold",
+            _ => "multiplayer-game-subtitle-rank-cold"
+        };
     }
 
     private bool IsCurrentUserWinner()

@@ -462,7 +462,7 @@ input {
 
 .profile-name {
     margin: 0 0 10px;
-    font-size: 50px;
+    font-size: 46px;
     line-height: 0.95;
     font-weight: normal;
 }
@@ -630,14 +630,14 @@ input {
 
 .history-title {
     margin: 0 0 10px;
-    font-size: 42px;
+    font-size: 46px;
     line-height: 1;
     font-weight: normal;
 }
 
 .history-subtitle {
     margin: 0;
-    font-size: 20px;
+    font-size: 22px;
     line-height: 1.15;
 }
 
@@ -758,7 +758,186 @@ input {
     line-height: 1.2;
 }
 
+.leaderboard-page {
+    width: min(1200px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 2px 0 24px;
+    color: #ffffff;
+}
+
+.leaderboard-card {
+    border-radius: 28px;
+    background: #3551A4;
+    box-shadow: 0 14px 32px rgba(8, 15, 28, 0.18);
+}
+
+.leaderboard-hero {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 30px 30px 26px;
+    margin-bottom: 40px;
+}
+
+.leaderboard-hero-main {
+    min-width: 0;
+}
+
+.leaderboard-title {
+    margin: 0 0 12px;
+    font-size: 46px;
+    line-height: 1;
+    font-weight: normal;
+}
+
+.leaderboard-subtitle {
+    margin: 0;
+    max-width: 680px;
+    font-size: 22px;
+    line-height: 1.18;
+}
+
+.leaderboard-summary {
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.leaderboard-summary-pill {
+    min-height: 92px;
+    border-radius: 24px;
+    background: #132442;
+    color: #ffffff;
+    padding: 18px 22px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.leaderboard-summary-pill-light {
+    background: #D6E264;
+    color: #132442;
+}
+
+.leaderboard-summary-label {
+    margin-bottom: 8px;
+    font-size: 16px;
+    line-height: 1.15;
+    opacity: 0.86;
+}
+
+.leaderboard-summary-pill-light .leaderboard-summary-label {
+    opacity: 1;
+}
+
+.leaderboard-summary-value {
+    font-size: 28px;
+    line-height: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.leaderboard-state-card,
+.leaderboard-table-card {
+    padding: 30px;
+}
+
+.leaderboard-state-card {
+    text-align: center;
+}
+
+.leaderboard-state-title {
+    margin: 0 0 14px;
+    font-size: 34px;
+    line-height: 1.05;
+    font-weight: normal;
+}
+
+.leaderboard-state-text {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.2;
+}
+
+.leaderboard-table-wrap {
+    overflow-x: auto;
+}
+
+.leaderboard-table {
+    min-width: 980px;
+}
+
+.leaderboard-table-header {
+    display: grid;
+    grid-template-columns: 0.8fr 2fr 1fr 1fr 1fr;
+    gap: 0;
+    min-height: 54px;
+    border-radius: 18px;
+    background: #D6E264;
+    color: #132442;
+    align-items: center;
+    text-align: center;
+    padding: 0 20px;
+    font-size: 18px;
+}
+
+.leaderboard-table-header > div {
+    text-align: center;
+}
+
+.leaderboard-table-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.leaderboard-row {
+    display: grid;
+    grid-template-columns: 0.8fr 2fr 1fr 1fr 1fr;
+    align-items: center;
+    min-height: 54px;
+    border: 1px solid rgba(242, 242, 236, 0.65);
+    border-radius: 18px;
+    background: #1a2c50;
+    color: #ffffff;
+    text-align: center;
+    padding: 0 20px;
+    font-size: 18px;
+}
+
+.leaderboard-row-current-user {
+    border-color: #f2f2ec;
+    box-shadow: 0 0 0 1px #f2f2ec inset;
+}
+
+.leaderboard-row-place,
+.leaderboard-row-player {
+    min-width: 0;
+}
+
+.leaderboard-row-player {
+    text-align: center;
+    font-size: 18px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 @media (max-width: 900px) {
+    .leaderboard-hero {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .leaderboard-summary {
+        width: 100%;
+        min-width: 0;
+    }
+
     .history-header {
         flex-direction: column;
         align-items: flex-start;
@@ -774,6 +953,77 @@ input {
 }
 
 @media (max-width: 560px) {
+    .leaderboard-page {
+        width: min(720px, calc(100% - 24px));
+    }
+
+    .leaderboard-hero,
+    .leaderboard-state-card,
+    .leaderboard-table-card {
+        padding: 24px 20px;
+    }
+
+    .leaderboard-title {
+        font-size: 38px;
+    }
+
+    .leaderboard-subtitle,
+    .leaderboard-state-text {
+        font-size: 18px;
+    }
+
+    .leaderboard-state-title {
+        font-size: 30px;
+    }
+
+    .leaderboard-summary-value {
+        font-size: 24px;
+    }
+
+    .leaderboard-table {
+        min-width: 0;
+    }
+
+    .leaderboard-table-header {
+        display: none;
+    }
+
+    .leaderboard-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        text-align: left;
+        padding: 18px 16px;
+    }
+
+    .leaderboard-row > div {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .leaderboard-row > div::before {
+        content: attr(data-label);
+        font-size: 14px;
+        line-height: 1.1;
+        opacity: 0.8;
+    }
+
+    .leaderboard-row-place {
+        justify-content: flex-start;
+        font-size: 18px;
+    }
+
+    .leaderboard-row-place::before {
+        display: none;
+    }
+
+    .leaderboard-row-player {
+        text-align: right;
+        font-size: 19px;
+        white-space: normal;
+    }
+
     .history-page {
         width: min(720px, calc(100% - 24px));
     }
@@ -828,7 +1078,7 @@ input {
 
 .game-subtitle {
     margin: 0;
-    font-size: 20px;
+    font-size: 22px;
     line-height: 1.15;
 }
 
@@ -1059,14 +1309,14 @@ input {
 
 .single-game-title {
     margin: 0 0 10px;
-    font-size: 44px;
+    font-size: 46px;
     line-height: 1;
     font-weight: normal;
 }
 
 .single-game-subtitle {
     margin: 0;
-    font-size: 20px;
+    font-size: 22px;
     line-height: 1.15;
 }
 
@@ -1134,6 +1384,14 @@ input {
 .single-game-button:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+}
+
+.single-game-button-steady {
+    transition: background-color 0.15s ease;
+}
+
+.single-game-button-steady:disabled {
+    opacity: 1;
 }
 
 .single-game-button-dark {
@@ -1416,97 +1674,71 @@ input {
     color: #D6E264;
 }
 
-.multiplayer-opponent-card {
-    padding: 30px 40px;
-    margin-bottom: 40px;
-}
-
-.multiplayer-opponent-header {
+.multiplayer-game-subtitle {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-    margin-bottom: 24px;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
 }
 
-.multiplayer-opponent-main {
-    min-width: 0;
-}
-
-.multiplayer-opponent-title {
-    margin: 0 0 8px;
-    font-size: 42px;
-    line-height: 1;
-    font-weight: normal;
-}
-
-.multiplayer-opponent-name {
-    margin: 0;
-    font-size: 20px;
-    line-height: 1.15;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.multiplayer-opponent-status {
-    min-height: 46px;
-    border-radius: 999px;
-    background: #D6E264;
-    color: #132442;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 24px;
-    font-size: 18px;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-.multiplayer-opponent-stats {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 24px;
-}
-
-.multiplayer-opponent-toggle-wrap {
-    margin-bottom: 40px;
-}
-
-.multiplayer-opponent-toggle-button,
-.multiplayer-opponent-collapse-button {
-    min-width: 200px;
-}
-
-.multiplayer-stat-card {
-    min-height: 110px;
-    border-radius: 18px;
-    background: #132442;
+.multiplayer-game-subtitle-name {
     color: #ffffff;
-    padding: 22px 24px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
 }
 
-.multiplayer-stat-label {
-    margin-bottom: 10px;
-    font-size: 18px;
-    line-height: 1.1;
-    opacity: 0.85;
+.multiplayer-game-subtitle-separator {
+    color: rgba(255, 255, 255, 0.55);
 }
 
-.multiplayer-stat-value {
-    font-size: 34px;
-    line-height: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.multiplayer-game-subtitle-rank {
+    color: #D6E264;
+}
+
+.multiplayer-game-subtitle-rank-hot {
+    color: #58c878;
+}
+
+.multiplayer-game-subtitle-rank-warm {
+    color: #F7C74A;
+}
+
+.multiplayer-game-subtitle-rank-medium {
+    color: #f2c84b;
+}
+
+.multiplayer-game-subtitle-rank-cold {
+    color: #ec6865;
 }
 
 .room-section {
     padding: 30px 40px;
     margin-bottom: 40px;
+}
+
+.room-header-card {
+    margin-bottom: 40px;
+}
+
+.room-header-layout {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.room-header-main {
+    min-width: 0;
+}
+
+.room-header-side {
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.room-header-actions {
+    justify-content: flex-end;
 }
 
 .room-players-grid {
@@ -1521,6 +1753,9 @@ input {
     background: #132442;
     color: #ffffff;
     padding: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .room-player-label {
@@ -1532,23 +1767,9 @@ input {
 
 .room-player-name {
     font-size: 28px;
-    line-height: 1;
-    overflow: hidden;
+    line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.room-status-card {
-    padding: 30px 40px;
-    margin-bottom: 40px;
-}
-
-.room-status-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-    margin-bottom: 24px;
 }
 
 .room-status-pill {
@@ -1570,6 +1791,36 @@ input {
     align-items: center;
     flex-wrap: wrap;
     gap: 16px;
+}
+
+.room-guide-card {
+    margin-bottom: 40px;
+}
+
+.room-guide-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 18px;
+}
+
+.room-guide-title {
+    margin: 0;
+    font-size: 34px;
+    line-height: 1;
+    font-weight: normal;
+}
+
+.room-guide-list {
+    margin: 0;
+    padding-left: 24px;
+    font-size: 22px;
+    line-height: 1.35;
+}
+
+.room-guide-list li + li {
+    margin-top: 10px;
 }
 
 @media (max-width: 900px) {
@@ -1601,18 +1852,24 @@ input {
         width: 100%;
     }
 
-    .multiplayer-opponent-header,
-    .room-status-header {
+    .room-header-layout,
+    .room-guide-header {
         flex-direction: column;
         align-items: flex-start;
     }
 
-    .multiplayer-opponent-stats,
+    .room-header-side {
+        width: 100%;
+        min-width: 0;
+        align-items: stretch;
+    }
+
     .room-players-grid {
         grid-template-columns: 1fr;
     }
 
     .room-actions,
+    .room-header-actions,
     .room-actions .game-button {
         width: 100%;
     }
@@ -1667,30 +1924,30 @@ input {
         font-size: 18px;
     }
 
-    .multiplayer-opponent-card,
-    .room-section,
-    .room-status-card {
+    .room-section {
         padding: 24px 20px;
     }
 
-    .multiplayer-opponent-title {
-        font-size: 36px;
-    }
-
-    .multiplayer-stat-value,
     .room-player-name {
         font-size: 28px;
     }
 
-    .multiplayer-opponent-status,
     .room-status-pill {
         width: 100%;
     }
 
-    .multiplayer-opponent-toggle-button,
-    .multiplayer-opponent-collapse-button {
-        width: 100%;
+    .multiplayer-game-subtitle {
+        gap: 6px;
     }
+
+    .room-guide-title {
+        font-size: 30px;
+    }
+
+    .room-guide-list {
+        font-size: 18px;
+    }
+
 }
 
 /* footer */

@@ -55,7 +55,7 @@
 
                 <div class="single-game-header-actions">
                     <div class="single-game-meta">Попытки: @currentGame.AttemptsCount</div>
-                    <button class="single-game-button single-game-button-danger"
+                    <button class="single-game-button single-game-button-danger single-game-button-steady"
                             @onclick="GiveUpAsync"
                             disabled="@(isSubmitting || currentGame.Status == GameStatus.Finished)"
                             type="button">
@@ -75,10 +75,10 @@
                        disabled="@(isSubmitting || currentGame.Status == GameStatus.Finished)"
                        placeholder="Введите слово" />
 
-                <button class="single-game-button single-game-button-dark"
+                <button class="single-game-button single-game-button-dark single-game-button-steady"
                         disabled="@(isSubmitting || currentGame.Status == GameStatus.Finished)"
                         type="submit">
-                    @(isSubmitting ? "Проверка..." : "Проверить")
+                    Проверить
                 </button>
             </form>
 
@@ -93,7 +93,8 @@
             <section class="single-game-card single-game-attempts-card">
                 @if (lastSubmittedAttempt is not null)
                 {
-                    <AttemptCard Attempt="lastSubmittedAttempt"
+                    <AttemptCard @key="GetAttemptKey(lastSubmittedAttempt)"
+                                 Attempt="lastSubmittedAttempt"
                                  IsFeatured="true"
                                  IsActive="true" />
                 }
@@ -246,41 +247,35 @@
             return;
         }
 
-        currentGame = updatedGame;
-        UpdateDisplayAttempts();
-        guessWord = string.Empty;
-
         var latestAttempt = updatedGame.LastAttempt;
 
         if (latestAttempt is null)
         {
             lastSubmittedAttempt = null;
             showNotFoundCard = false;
-            shouldFocusGuessInput = true;
-            return;
         }
-
-        if (!latestAttempt.IsValid)
+        else if (!latestAttempt.IsValid)
         {
             lastSubmittedAttempt = null;
             showNotFoundCard = true;
             pageMessage = string.Empty;
-            shouldFocusGuessInput = true;
-            return;
         }
-
-        if (updatedGame.LastAttemptWasRepeated)
+        else if (updatedGame.LastAttemptWasRepeated)
         {
             lastSubmittedAttempt = latestAttempt;
             showNotFoundCard = false;
             pageMessage = "Это слово уже было введено.";
-            shouldFocusGuessInput = true;
-            return;
+        }
+        else
+        {
+            lastSubmittedAttempt = latestAttempt;
+            showNotFoundCard = false;
+            pageMessage = string.Empty;
         }
 
-        lastSubmittedAttempt = latestAttempt;
-        showNotFoundCard = false;
-        pageMessage = string.Empty;
+        currentGame = updatedGame;
+        UpdateDisplayAttempts();
+        guessWord = string.Empty;
         shouldFocusGuessInput = true;
     }
 
@@ -323,6 +318,11 @@
             .OrderBy(attempt => attempt.Rank)
             .ThenBy(attempt => attempt.Word)
             .ToList();
+    }
+
+    private static string GetAttemptKey(GameAttemptResponseDto attempt)
+    {
+        return $"{attempt.Word}|{attempt.Rank}|{attempt.CreatedAt:O}";
     }
 
     public void Dispose()

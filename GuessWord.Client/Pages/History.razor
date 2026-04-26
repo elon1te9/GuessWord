@@ -7,7 +7,14 @@
 <PageTitle>История матчей</PageTitle>
 
 <div class="history-page">
-    @if (!UserState.IsAuthorized)
+    @if (!UserState.IsInitialized || _isLoading)
+    {
+        <section class="history-card history-empty-card">
+            <h1 class="history-empty-title">История матчей</h1>
+            <p class="history-empty-text">Загрузка...</p>
+        </section>
+    }
+    else if (!UserState.IsAuthorized)
     {
         <section class="history-card history-empty-card">
             <h1 class="history-empty-title">История матчей</h1>
@@ -30,11 +37,7 @@
             </div>
         </section>
 
-        @if (_isLoading)
-        {
-            <p class="history-empty-result">Загрузка...</p>
-        }
-        else if (!string.IsNullOrWhiteSpace(_errorMessage))
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
         {
             <p class="history-empty-result">@_errorMessage</p>
         }
@@ -101,6 +104,12 @@
     {
         _matches = [];
         _errorMessage = null;
+
+        if (!UserState.IsInitialized)
+        {
+            _isLoading = true;
+            return;
+        }
 
         if (!UserState.IsAuthorized)
         {

@@ -31,6 +31,12 @@ namespace GuessWord.Api.Controllers
             return result is null ? BadRequest("Неверный логин или пароль.") : Ok(result);
         }
 
+        [HttpGet("leaderboard")]
+        public async Task<IActionResult> GetLeaderboard()
+        {
+            return Ok(await _userService.GetLeaderboardAsync());
+        }
+
         [Authorize]
         [HttpGet("profile")]
         public async Task<IActionResult> GetProfile()

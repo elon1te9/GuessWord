@@ -1,0 +1,130 @@
+@page "/leaderboard"
+@implements IDisposable
+@using GuessWord.Shared.Responses
+@inject GuessWord.Client.Services.UserStateService UserState
+@inject GuessWord.Client.Services.UserService UserService
+
+<PageTitle>Таблица лидеров</PageTitle>
+
+<div class="leaderboard-page">
+    <section class="leaderboard-card leaderboard-hero">
+        <div class="leaderboard-hero-main">
+            <h1 class="leaderboard-title">Таблица лидеров</h1>
+            <p class="leaderboard-subtitle">
+                Лучшие игроки GuessWord за всё время. Побеждай чаще, поднимайся выше и закрепляйся в топе.
+            </p>
+        </div>
+
+        <div class="leaderboard-summary">
+            <div class="leaderboard-summary-pill">
+                <span class="leaderboard-summary-label">Игроков в рейтинге</span>
+                <span class="leaderboard-summary-value">@TotalPlayersLabel</span>
+            </div>
+
+            <div class="leaderboard-summary-pill leaderboard-summary-pill-light">
+                <span class="leaderboard-summary-label">Лидер по победам</span>
+                <span class="leaderboard-summary-value">@LeaderLabel</span>
+            </div>
+        </div>
+    </section>
+
+    @if (_isLoading)
+    {
+        <section class="leaderboard-card leaderboard-state-card">
+            <p class="leaderboard-state-text">Загрузка таблицы лидеров...</p>
+        </section>
+    }
+    else if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <section class="leaderboard-card leaderboard-state-card">
+            <p class="leaderboard-state-text">@_errorMessage</p>
+        </section>
+    }
+    else if (_leaderboard?.Entries.Count is not > 0)
+    {
+        <section class="leaderboard-card leaderboard-state-card">
+            <h2 class="leaderboard-state-title">Пока нет завершённых игр для рейтинга</h2>
+            <p class="leaderboard-state-text">Как только появятся первые завершённые матчи, здесь сформируется общий топ игроков.</p>
+        </section>
+    }
+    else
+    {
+        <section class="leaderboard-card leaderboard-table-card">
+            <div class="leaderboard-table-wrap">
+                <div class="leaderboard-table">
+                    <div class="leaderboard-table-header">
+                        <div>Место</div>
+                        <div>Игрок</div>
+                        <div>Победы</div>
+                        <div>Игр</div>
+                        <div>Winrate</div>
+                    </div>
+
+                    <div class="leaderboard-table-body">
+                        @foreach (var entry in _leaderboard!.Entries)
+                        {
+                            <div class="@GetRowClass(entry)">
+                                <div class="leaderboard-row-place" data-label="Место">@entry.Place</div>
+                                <div class="leaderboard-row-player" data-label="Игрок">@entry.DisplayName</div>
+                                <div data-label="Победы">@entry.WinsCount</div>
+                                <div data-label="Игр">@entry.GamesCount</div>
+                                <div data-label="Winrate">@entry.WinRate%</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private LeaderboardResponseDto? _leaderboard;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    private string TotalPlayersLabel => _leaderboard?.TotalPlayers.ToString() ?? "0";
+
+    private string LeaderLabel => _leaderboard?.Entries.FirstOrDefault() is { } leader
+        ? $"{leader.DisplayName} · {leader.WinsCount}"
+        : "Пока нет данных";
+
+    protected override async Task OnInitializedAsync()
+    {
+        UserState.OnChange += HandleUserStateChanged;
+        await LoadLeaderboardAsync();
+    }
+
+    private async Task LoadLeaderboardAsync()
+    {
+        _errorMessage = null;
+        _isLoading = true;
+        StateHasChanged();
+
+        var leaderboard = await UserService.GetLeaderboardAsync();
+
+        _leaderboard = leaderboard;
+        _errorMessage = leaderboard is null ? "Не удалось загрузить таблицу лидеров." : null;
+        _isLoading = false;
+    }
+
+    private void HandleUserStateChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private string GetRowClass(LeaderboardEntryResponseDto entry)
+    {
+        var classes = new List<string> { "leaderboard-row" };
+
+        if (UserState.IsAuthorized && UserState.UserId == entry.UserId)
+            classes.Add("leaderboard-row-current-user");
+
+        return string.Join(" ", classes);
+    }
+
+    public void Dispose()
+    {
+        UserState.OnChange -= HandleUserStateChanged;
+    }
+}

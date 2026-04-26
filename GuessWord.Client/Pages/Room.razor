@@ -1,4 +1,4 @@
-@page "/game/room/{Code}"
+﻿@page "/game/room/{Code}"
 @implements IAsyncDisposable
 @using GuessWord.Shared.Enums
 @using GuessWord.Shared.Responses
@@ -29,14 +29,47 @@
     }
     else if (room is not null)
     {
-        <section class="game-card game-header">
-            <h1 class="game-title">Комната 1 на 1</h1>
-            <p class="game-subtitle">Код комнаты: @room.Code</p>
+        <section class="game-card game-header room-header-card">
+            <div class="room-header-layout">
+                <div class="room-header-main">
+                    <h1 class="game-title">Комната 1 на 1</h1>
+                    <p class="game-subtitle">Код комнаты: @room.Code</p>
+                </div>
+
+                <div class="room-header-side">
+                    <div class="room-actions room-header-actions">
+                        @if (room.IsHost)
+                        {
+                            <button class="game-button game-button-dark"
+                                    @onclick="StartMultiplayerGameAsync"
+                                    disabled="@(!room.CanStartGame || isStartingGame)"
+                                    type="button">
+                                @(isStartingGame ? "Запуск..." : "Начать игру")
+                            </button>
+                        }
+
+                        <button class="game-button game-button-light"
+                                @onclick="LeaveRoomAsync"
+                                disabled="@isLeaving"
+                                type="button">
+                            @(isLeaving ? "Выход..." : "Выйти из комнаты")
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(signalRErrorMessage))
+            {
+                <p class="game-message">@signalRErrorMessage</p>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(startGameError))
+            {
+                <p class="game-message">@startGameError</p>
+            }
         </section>
 
         <section class="game-card room-section">
-            <h2 class="game-title">Участники</h2>
-
             <div class="room-players-grid">
                 <div class="room-player-card">
                     <div class="room-player-label">Создатель</div>
@@ -54,64 +87,17 @@
             </div>
         </section>
 
-        <section class="game-card room-status-card">
-            <div class="room-status-header">
-                <div>
-                    <h2 class="game-title">Статус</h2>
-                    <p class="game-subtitle">
-                        @(room.IsHost
-                            ? "Запусти матч, когда соперник подключится."
-                            : "Ожидаем старт от создателя комнаты.")
-                    </p>
-                </div>
-
+        <section class="game-card room-section room-guide-card">
+            <div class="room-guide-header">
+                <h2 class="room-guide-title">Как начать матч</h2>
                 <div class="room-status-pill">@GetRoomStatusText(room.Status)</div>
             </div>
 
-            @if (!string.IsNullOrWhiteSpace(signalRErrorMessage))
-            {
-                <p class="game-message">@signalRErrorMessage</p>
-            }
-
-            @if (room.IsHost)
-            {
-                <div class="room-actions">
-                    <button class="game-button game-button-dark"
-                            @onclick="StartMultiplayerGameAsync"
-                            disabled="@(!room.CanStartGame || isStartingGame)"
-                            type="button">
-                        @(isStartingGame ? "Запуск..." : "Начать игру")
-                    </button>
-                </div>
-
-                <p class="game-message">
-                    @if (!string.IsNullOrWhiteSpace(startGameError))
-                    {
-                        @startGameError
-                    }
-                    else
-                    {
-                        @(room.CanStartGame
-                            ? "Можно запускать матч."
-                            : "Ожидаем второго игрока.")
-                    }
-                </p>
-            }
-            else
-            {
-                <p class="game-message">Ожидаем, когда создатель комнаты начнёт игру.</p>
-            }
-        </section>
-
-        <section class="game-card room-section">
-            <div class="room-actions">
-                <button class="game-button game-button-light"
-                        @onclick="LeaveRoomAsync"
-                        disabled="@isLeaving"
-                        type="button">
-                    @(isLeaving ? "Выход..." : "Выйти из комнаты")
-                </button>
-            </div>
+            <ul class="room-guide-list">
+                <li>Поделись кодом комнаты со вторым игроком.</li>
+                <li>Дождись, пока соперник подключится к лобби.</li>
+                <li>Когда статус станет «Готово к старту», запускай игру.</li>
+            </ul>
         </section>
     }
 </div>

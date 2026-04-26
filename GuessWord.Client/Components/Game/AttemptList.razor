@@ -5,8 +5,9 @@
     <div class="single-game-word-table">
         @foreach (var attempt in Attempts)
         {
-            <AttemptCard Attempt="attempt"
-                         IsActive="@IsLastSubmittedWord(attempt)" />
+            <AttemptCard @key="GetAttemptKey(attempt)"
+                         Attempt="attempt"
+                         IsActive="@(HighlightLastSubmitted && IsLastSubmittedWord(attempt))" />
         }
     </div>
 }
@@ -18,9 +19,19 @@
     [Parameter]
     public GameAttemptResponseDto? LastSubmittedAttempt { get; set; }
 
+    [Parameter]
+    public bool HighlightLastSubmitted { get; set; }
+
     private bool IsLastSubmittedWord(GameAttemptResponseDto attempt)
     {
         return LastSubmittedAttempt is not null &&
-               string.Equals(attempt.Word, LastSubmittedAttempt.Word, StringComparison.OrdinalIgnoreCase);
+               string.Equals(attempt.Word, LastSubmittedAttempt.Word, StringComparison.OrdinalIgnoreCase) &&
+               attempt.CreatedAt == LastSubmittedAttempt.CreatedAt &&
+               attempt.Rank == LastSubmittedAttempt.Rank;
+    }
+
+    private static string GetAttemptKey(GameAttemptResponseDto attempt)
+    {
+        return $"{attempt.Word}|{attempt.Rank}|{attempt.CreatedAt:O}";
     }
 }

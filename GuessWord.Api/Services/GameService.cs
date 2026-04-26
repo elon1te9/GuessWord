@@ -499,7 +499,6 @@ namespace GuessWord.Api.Services
         public async Task<List<GameHistoryItemResponseDto>> GetHistoryAsync(int userId)
         {
             var gamePlayers = await _context.GamePlayers
-                .AsNoTracking()
                 .Where(gp => gp.UserId == userId && gp.Game.Status == GameStatus.Finished)
                 .Include(gp => gp.Game)
                     .ThenInclude(g => g.SecretWord)
@@ -541,7 +540,7 @@ namespace GuessWord.Api.Services
                         GameType = game.Mode == GameMode.Single ? "Сингл" : "Мультиплеер",
                         Result = result,
                         AttemptsCount = gp.AttemptsCount,
-                        SecretWord = game.SecretWord.Text,
+                        SecretWord = game.SecretWord?.Text ?? "-",
                         OpponentName = game.Mode == GameMode.Single ? "-" : opponentName
                     };
                 })
