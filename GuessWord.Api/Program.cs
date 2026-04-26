@@ -26,6 +26,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IGameService, GameService>();
+builder.Services.AddScoped<IRoomService, RoomService>();
 builder.Services.AddScoped<DictionaryImportService>();
 builder.Services.AddScoped<IRankService, RankService>();
 

@@ -1,4 +1,4 @@
-﻿using GuessWord.Shared.Enums;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GuessWord.Api.Models
 {
@@ -13,9 +13,10 @@ namespace GuessWord.Api.Models
         public int? GuestUserId { get; set; }
         public User? GuestUser { get; set; }
 
-        public RoomStatus Status { get; set; } = RoomStatus.Waiting;
-
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [NotMapped]
+        public int? GameId { get; set; }
 
         public Game? Game { get; set; }
     }

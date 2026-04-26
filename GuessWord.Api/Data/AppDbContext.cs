@@ -28,6 +28,10 @@ namespace GuessWord.Api.Data
                 .HasIndex(x => x.Name)
                 .IsUnique();
 
+            modelBuilder.Entity<Room>()
+                .HasIndex(x => x.Code)
+                .IsUnique();
+
             modelBuilder.Entity<Word>()
                 .HasIndex(x => x.Text)
                 .IsUnique();
