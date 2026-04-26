@@ -3,6 +3,7 @@
 @inject NavigationManager Navigation
 @inject GuessWord.Client.Services.UserStateService UserState
 @inject GuessWord.Client.Services.GameService GameService
+@inject GuessWord.Client.Services.RoomService RoomService
 
 <PageTitle>Игровое лобби</PageTitle>
 
@@ -71,16 +72,35 @@
                     Соревнуйся с другим игроком в общем раунде.
                 </p>
 
-                <div class="game-actions">
-                    <button class="game-button game-button-light game-button-disabled" disabled type="button">
-                        Создать комнату
+                <div class="multiplayer-lobby">
+                    <button class="game-button game-button-light"
+                            @onclick="CreateRoomAsync"
+                            disabled="@isCreatingRoom"
+                            type="button">
+                        @(isCreatingRoom ? "Создание..." : "Создать комнату")
                     </button>
-                    <button class="game-button game-button-light game-button-disabled" disabled type="button">
-                        Присоединиться
-                    </button>
+
+                    <div class="game-actions join-room">
+                        <input type="text"
+                               placeholder="Код комнаты"
+                               @bind="roomCode"
+                               class="game-input input" />
+
+                        <button class="game-button game-button-light"
+                                @onclick="JoinRoomAsync"
+                                disabled="@isJoiningRoom"
+                                type="button">
+                            @(isJoiningRoom ? "Подключение..." : "Присоединиться")
+                        </button>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(roomError))
+                    {
+                        <div class="error-message game-message">@roomError</div>
+                    }
                 </div>
 
-                <p class="game-mode-status">Мультиплеер будет подключён после реализации комнат.</p>
+                <p class="game-mode-status">Создай комнату или подключись по коду, чтобы перейти в лобби 1 на 1.</p>
             </section>
         </div>
 
@@ -99,7 +119,11 @@
 @code {
     private bool isLoading = true;
     private bool isActionLoading;
+    private bool isCreatingRoom;
+    private bool isJoiningRoom;
     private bool hasActiveSingleGame;
+    private string roomCode = string.Empty;
+    private string? roomError;
     private string errorMessage = string.Empty;
     private string singleModeStatus = string.Empty;
 
@@ -192,6 +216,54 @@
         hasActiveSingleGame = true;
         singleModeStatus = "Продолжаем текущую одиночную игру.";
         Navigation.NavigateTo("/game/single");
+    }
+
+    private async Task CreateRoomAsync()
+    {
+        if (isCreatingRoom)
+            return;
+
+        isCreatingRoom = true;
+        roomError = null;
+
+        var room = await RoomService.CreateRoomAsync();
+
+        isCreatingRoom = false;
+
+        if (room is null)
+        {
+            roomError = "Не удалось создать комнату.";
+            return;
+        }
+
+        Navigation.NavigateTo($"/game/room/{room.Code}");
+    }
+
+    private async Task JoinRoomAsync()
+    {
+        if (isJoiningRoom)
+            return;
+
+        if (string.IsNullOrWhiteSpace(roomCode))
+        {
+            roomError = "Введите код комнаты.";
+            return;
+        }
+
+        isJoiningRoom = true;
+        roomError = null;
+
+        var room = await RoomService.JoinRoomAsync(roomCode);
+
+        isJoiningRoom = false;
+
+        if (room is null)
+        {
+            roomError = "Комната не найдена или уже заполнена.";
+            return;
+        }
+
+        Navigation.NavigateTo($"/game/room/{room.Code}");
     }
 
     public void Dispose()

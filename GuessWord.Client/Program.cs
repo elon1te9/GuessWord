@@ -16,6 +16,7 @@ builder.Services.AddScoped(sp => new HttpClient
 builder.Services.AddScoped<ApiRequestService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<GameService>();
+builder.Services.AddScoped<RoomService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<LocalStorageService>();
 builder.Services.AddSingleton<UserStateService>();

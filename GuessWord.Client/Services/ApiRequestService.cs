@@ -108,6 +108,26 @@ public class ApiRequestService
         }
     }
 
+    public async Task<bool> PostAsync(string url)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync(url, content: null);
+
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                await HandleUnauthorizedAsync();
+                return false;
+            }
+
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public async Task<TResponse?> PutAsync<TRequest, TResponse>(string url, TRequest data)
     {
         try

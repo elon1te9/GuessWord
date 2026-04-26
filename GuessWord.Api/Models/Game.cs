@@ -18,9 +18,6 @@ namespace GuessWord.Api.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? FinishedAt { get; set; }
 
-        public int? RoomId { get; set; }
-        public Room? Room { get; set; }
-
         public List<GamePlayer> Players { get; set; } = new();
         public List<GameAttempt> Attempts { get; set; } = new();
     }

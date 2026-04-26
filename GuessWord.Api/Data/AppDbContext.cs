@@ -67,11 +67,6 @@ namespace GuessWord.Api.Data
                 .HasForeignKey(r => r.GuestUserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<Game>()
-                .HasOne(g => g.Room)
-                .WithOne()
-                .HasForeignKey<Game>(g => g.RoomId);
-
             modelBuilder.Entity<Room>()
                 .HasOne(r => r.Game)
                 .WithMany()
