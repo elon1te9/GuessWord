@@ -167,8 +167,8 @@
             <p class="single-game-result-text">@GetResultText()</p>
 
             <div class="single-game-result-secret">
-                <div class="single-game-result-secret-label">Длина секретного слова</div>
-                <div class="single-game-result-secret-word">@currentGame.SecretWordLength</div>
+                <div class="single-game-result-secret-label">Загаданное слово</div>
+                <div class="single-game-result-secret-word">@currentGame.SecretWord</div>
             </div>
 
             <div class="single-game-result-stats">
@@ -237,12 +237,15 @@
         await guessInputRef.FocusAsync();
     }
 
-    private async Task LoadGameState(int gameId)
+    private async Task LoadGameState(int gameId, bool resetTransientState = true)
     {
-        pageMessage = string.Empty;
-        guessWord = string.Empty;
-        lastSubmittedAttempt = null;
-        showNotFoundCard = false;
+        if (resetTransientState)
+        {
+            pageMessage = string.Empty;
+            guessWord = string.Empty;
+            lastSubmittedAttempt = null;
+            showNotFoundCard = false;
+        }
 
         currentGame = await GameService.GetGameStateAsync(gameId);
         UpdateDisplayAttempts();
@@ -288,7 +291,7 @@
 
     private async Task ReloadGameStateAsync()
     {
-        await LoadGameState(GameId);
+        await LoadGameState(GameId, resetTransientState: false);
         await InvokeAsync(StateHasChanged);
     }
 

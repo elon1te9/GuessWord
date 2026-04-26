@@ -198,6 +198,7 @@ namespace GuessWord.Api.Services
             {
                 GameId = game.Id,
                 Status = game.Status,
+                SecretWord = game.Status == GameStatus.Finished ? game.SecretWord.Text : null,
                 SecretWordLength = game.SecretWord?.Text.Length,
                 WinnerId = game.WinnerUserId,
                 Players = game.Players
@@ -315,6 +316,8 @@ namespace GuessWord.Api.Services
                 {
                     otherPlayer.Result = GamePlayerResult.Lost;
                 }
+
+                await MarkRoomClosedAsync(game.Id);
             }
 
             await _context.SaveChangesAsync();
@@ -349,6 +352,8 @@ namespace GuessWord.Api.Services
             {
                 opponent.Result = GamePlayerResult.Won;
             }
+
+            await MarkRoomClosedAsync(game.Id);
 
             await _context.SaveChangesAsync();
 
@@ -567,6 +572,16 @@ namespace GuessWord.Api.Services
                     a.UserId == userId &&
                     a.Word == normalizedWord &&
                     a.IsValid);
+        }
+
+        private async Task MarkRoomClosedAsync(int gameId)
+        {
+            var room = await _context.Rooms.FirstOrDefaultAsync(r => r.GameId == gameId);
+
+            if (room is not null)
+            {
+                room.Status = RoomStatus.Closed;
+            }
         }
 
         private async Task<SingleGameResponseDto> BuildGameResponseAsync(

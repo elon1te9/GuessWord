@@ -174,12 +174,11 @@
             .WithAutomaticReconnect()
             .Build();
 
-        hubConnection.On<RoomResponseDto>("RoomUpdated", updatedRoom =>
+        hubConnection.On<RoomResponseDto>("RoomUpdated", async _ =>
         {
-            room = updatedRoom;
             startGameError = null;
-            NavigateToGameIfStarted();
-            return InvokeAsync(StateHasChanged);
+            await LoadRoomAsync();
+            await InvokeAsync(StateHasChanged);
         });
 
         hubConnection.On<string>("RoomClosed", _ =>
