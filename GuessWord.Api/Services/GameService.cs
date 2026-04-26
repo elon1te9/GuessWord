@@ -276,19 +276,19 @@ namespace GuessWord.Api.Services
 
             if (word is null)
             {
-                var invalidAttempt = new GameAttempt
+                var invalidAttempt = new GameAttemptResponseDto
                 {
-                    GameId = game.Id,
-                    UserId = userId,
                     Word = normalizedWord,
                     Rank = null,
-                    IsValid = false
+                    IsValid = false,
+                    IsRepeated = false,
+                    CreatedAt = DateTime.UtcNow
                 };
 
-                game.Attempts.Add(invalidAttempt);
-                await _context.SaveChangesAsync();
-
-                return await BuildMultiplayerGameResponseAsync(game.Id, userId, invalidAttempt.Id, false);
+                return await BuildMultiplayerGameResponseAsync(
+                    game.Id,
+                    userId,
+                    transientLastAttempt: invalidAttempt);
             }
 
             var rank = await _rankService.GetRankAsync(game.SecretWordId, word.Id);
@@ -396,22 +396,19 @@ namespace GuessWord.Api.Services
 
             if (word is null)
             {
-                await using var transaction = await _context.Database.BeginTransactionAsync();
-
-                var invalidAttempt = new GameAttempt
+                var invalidAttempt = new GameAttemptResponseDto
                 {
-                    GameId = game.Id,
-                    UserId = userId,
                     Word = normalizedWord,
                     Rank = null,
-                    IsValid = false
+                    IsValid = false,
+                    IsRepeated = false,
+                    CreatedAt = DateTime.UtcNow
                 };
 
-                game.Attempts.Add(invalidAttempt);
-
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-                return await BuildGameResponseAsync(game.Id, userId, invalidAttempt.Id, false);
+                return await BuildGameResponseAsync(
+                    game.Id,
+                    userId,
+                    transientLastAttempt: invalidAttempt);
             }
 
             var rank = await _rankService.GetRankAsync(game.SecretWordId, word.Id);
@@ -588,7 +585,8 @@ namespace GuessWord.Api.Services
             int gameId,
             int userId,
             int? lastAttemptId = null,
-            bool lastAttemptWasRepeated = false)
+            bool lastAttemptWasRepeated = false,
+            GameAttemptResponseDto? transientLastAttempt = null)
         {
             var game = await _context.Games
                 .AsNoTracking()
@@ -612,7 +610,11 @@ namespace GuessWord.Api.Services
 
             GameAttemptResponseDto? lastAttempt = null;
 
-            if (lastAttemptId.HasValue)
+            if (transientLastAttempt is not null)
+            {
+                lastAttempt = transientLastAttempt;
+            }
+            else if (lastAttemptId.HasValue)
             {
                 var sourceAttempt = game.Attempts.FirstOrDefault(a => a.Id == lastAttemptId.Value);
 
@@ -646,7 +648,8 @@ namespace GuessWord.Api.Services
             int gameId,
             int userId,
             int? lastAttemptId = null,
-            bool lastAttemptWasRepeated = false)
+            bool lastAttemptWasRepeated = false,
+            GameAttemptResponseDto? transientLastAttempt = null)
         {
             var game = await _context.Games
                 .AsNoTracking()
@@ -681,7 +684,11 @@ namespace GuessWord.Api.Services
 
             GameAttemptResponseDto? lastAttempt = null;
 
-            if (lastAttemptId.HasValue)
+            if (transientLastAttempt is not null)
+            {
+                lastAttempt = transientLastAttempt;
+            }
+            else if (lastAttemptId.HasValue)
             {
                 var sourceAttempt = game.Attempts
                     .FirstOrDefault(a => a.Id == lastAttemptId.Value && a.UserId == userId);
