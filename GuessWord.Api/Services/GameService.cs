@@ -545,9 +545,11 @@ namespace GuessWord.Api.Services
                 .ToList();
 
             var opponentBestRank = game.Attempts
-                .Where(a => a.UserId == opponent?.UserId && a.IsValid && a.Rank.HasValue)
-                .Select(a => a.Rank)
-                .Min();
+                .Where(a => opponent is not null &&
+                            a.UserId == opponent.UserId &&
+                            a.IsValid &&
+                            a.Rank.HasValue)
+                .Min(a => (int?)a.Rank);
 
             GameAttemptResponseDto? lastAttempt = null;
 

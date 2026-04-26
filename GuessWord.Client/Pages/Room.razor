@@ -123,6 +123,7 @@
         room = loadedRoom;
         errorMessage = null;
         isLoading = false;
+        NavigateToGameIfStarted();
     }
 
     private async Task InitializeSignalRAsync()
@@ -142,6 +143,7 @@
         {
             room = updatedRoom;
             startGameError = null;
+            NavigateToGameIfStarted();
             return InvokeAsync(StateHasChanged);
         });
 
@@ -203,6 +205,14 @@
     private void NavigateToLobby()
     {
         Navigation.NavigateTo("/game");
+    }
+
+    private void NavigateToGameIfStarted()
+    {
+        if (room?.Status == RoomStatus.InGame && room.GameId.HasValue)
+        {
+            Navigation.NavigateTo($"/game/multiplayer/{room.GameId.Value}");
+        }
     }
 
     private static string GetRoomStatusText(RoomStatus status)
