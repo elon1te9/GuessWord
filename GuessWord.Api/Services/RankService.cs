@@ -30,6 +30,18 @@ namespace GuessWord.Api.Services
                 : int.MaxValue;
         }
 
+        public async Task<IReadOnlyList<(int WordId, int Rank)>> GetRankingPreviewAsync(int secretWordId, int take)
+        {
+            var normalizedTake = Math.Clamp(take, 1, 500);
+            var rankMap = await GetOrBuildRankingAsync(secretWordId);
+
+            return rankMap
+                .OrderBy(entry => entry.Value)
+                .Take(normalizedTake)
+                .Select(entry => (entry.Key, entry.Value))
+                .ToList();
+        }
+
         private async Task<Dictionary<int, int>> GetOrBuildRankingAsync(int secretWordId)
         {
             var cacheKey = $"ranking_{secretWordId}";

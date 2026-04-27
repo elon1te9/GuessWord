@@ -6,6 +6,7 @@ namespace GuessWord.Api.Services
 {
     public class DictionaryImportService
     {
+        private const int MinWordsCount = 20_000;
         private readonly AppDbContext _context;
         private readonly IWebHostEnvironment _environment;
 
@@ -35,11 +36,27 @@ namespace GuessWord.Api.Services
                 .Distinct()
                 .ToList();
 
+            var allWordsSet = allWords.ToHashSet();
+
             var secretWords = File.ReadAllLines(secretWordsPath)
                 .Select(x => x.Trim().ToLower())
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Distinct()
                 .ToHashSet();
+
+            if (allWords.Count < MinWordsCount)
+                throw new InvalidOperationException(
+                    $"Полный словарь слишком маленький. Требуется не менее {MinWordsCount} слов, найдено {allWords.Count}.");
+
+            var missingSecretWords = secretWords
+                .Where(word => !allWordsSet.Contains(word))
+                .Take(20)
+                .ToList();
+
+            if (missingSecretWords.Count > 0)
+                throw new InvalidOperationException(
+                    "В полном словаре отсутствуют слова из secret-words.txt: "
+                    + string.Join(", ", missingSecretWords));
 
             var words = allWords.Select(word => new Word
             {

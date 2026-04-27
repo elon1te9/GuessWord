@@ -64,10 +64,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseCors("AllowBlazor");
+
 app.UseAuthentication();
 app.UseAuthorization();
-
-app.UseCors("AllowBlazor");
 
 app.MapControllers();
 app.MapHub<GameHub>("/hubs/game");
