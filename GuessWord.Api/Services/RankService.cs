@@ -30,18 +30,6 @@ namespace GuessWord.Api.Services
                 : int.MaxValue;
         }
 
-        public async Task<IReadOnlyList<(int WordId, int Rank)>> GetRankingPreviewAsync(int secretWordId, int take)
-        {
-            var normalizedTake = Math.Clamp(take, 1, 500);
-            var rankMap = await GetOrBuildRankingAsync(secretWordId);
-
-            return rankMap
-                .OrderBy(entry => entry.Value)
-                .Take(normalizedTake)
-                .Select(entry => (entry.Key, entry.Value))
-                .ToList();
-        }
-
         private async Task<Dictionary<int, int>> GetOrBuildRankingAsync(int secretWordId)
         {
             var cacheKey = $"ranking_{secretWordId}";
@@ -98,7 +86,7 @@ namespace GuessWord.Api.Services
                 .Select(w => new
                 {
                     w.Id,
-                    Score = Dot(secretVector, w.Embedding!.ToArray())
+                    Score = CosineSimilarity(secretVector, w.Embedding!.ToArray())
                 })
                 .OrderByDescending(x => x.Score)
                 .ToList();
@@ -113,16 +101,23 @@ namespace GuessWord.Api.Services
             return rankMap;
         }
 
-        private float Dot(float[] a, float[] b)
+        private float CosineSimilarity(float[] a, float[] b)
         {
-            float sum = 0;
+            float dot = 0;
+            float normA = 0;
+            float normB = 0;
 
             for (int i = 0; i < a.Length; i++)
             {
-                sum += a[i] * b[i];
+                dot += a[i] * b[i];
+                normA += a[i] * a[i];
+                normB += b[i] * b[i];
             }
 
-            return sum;
+            if (normA <= 0 || normB <= 0)
+                return float.MinValue;
+
+            return dot / (float)(Math.Sqrt(normA) * Math.Sqrt(normB));
         }
     }
 }

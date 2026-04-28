@@ -70,6 +70,19 @@ wwwroot/dist/
 # =========================
 *.cache
 *.tmp
+__pycache__/
+_build/
+_codex_build/
+client-run.log
+client-run.err.log
+
+# =========================
+# LOCAL DICTIONARY DATA
+# =========================
+GuessWord.Api/Resources/Data/sociation.org.tsv
+GuessWord.Api/Resources/Data/sociation2vec800.vec
+GuessWord.Api/Resources/secret-words-quality-report.tsv
+GuessWord.Api/Resources/all-words-prune-candidates.tsv
 
 # =========================
 # BLAZOR WASM

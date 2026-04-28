@@ -42,7 +42,7 @@ namespace GuessWord.Api.Data
 
             modelBuilder.Entity<Word>()
                 .Property(x => x.Embedding)
-                .HasColumnType("vector(1024)");
+                .HasColumnType("vector(800)");
 
             modelBuilder.Entity<GamePlayer>()
                 .HasIndex(x => new { x.UserId, x.IsActiveSingleGame })
