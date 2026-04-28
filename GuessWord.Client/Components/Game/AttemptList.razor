@@ -1,4 +1,5 @@
 @using GuessWord.Shared.Responses
+@using GuessWord.Client.Services
 
 @if (Attempts.Count > 0)
 {
@@ -6,8 +7,7 @@
         @foreach (var attempt in Attempts)
         {
             <AttemptCard @key="GetAttemptKey(attempt)"
-                         Attempt="attempt"
-                         IsActive="@(HighlightLastSubmitted && IsLastSubmittedWord(attempt))" />
+                         Attempt="attempt" />
         }
     </div>
 }
@@ -16,22 +16,8 @@
     [Parameter]
     public IReadOnlyList<GameAttemptResponseDto> Attempts { get; set; } = Array.Empty<GameAttemptResponseDto>();
 
-    [Parameter]
-    public GameAttemptResponseDto? LastSubmittedAttempt { get; set; }
-
-    [Parameter]
-    public bool HighlightLastSubmitted { get; set; }
-
-    private bool IsLastSubmittedWord(GameAttemptResponseDto attempt)
-    {
-        return LastSubmittedAttempt is not null &&
-               string.Equals(attempt.Word, LastSubmittedAttempt.Word, StringComparison.OrdinalIgnoreCase) &&
-               attempt.CreatedAt == LastSubmittedAttempt.CreatedAt &&
-               attempt.Rank == LastSubmittedAttempt.Rank;
-    }
-
     private static string GetAttemptKey(GameAttemptResponseDto attempt)
     {
-        return $"{attempt.Word}|{attempt.Rank}|{attempt.CreatedAt:O}";
+        return GameAttemptDisplayHelper.BuildAttemptKey(attempt);
     }
 }

@@ -6,6 +6,8 @@ namespace GuessWord.Client.Services
 {
     public class AuthService
     {
+        private static readonly string[] UserStorageKeys = ["userId", "token", "login", "name"];
+
         private readonly ApiRequestService _apiRequestService;
         private readonly LocalStorageService _localStorageService;
         private readonly UserStateService _userStateService;
@@ -70,18 +72,9 @@ namespace GuessWord.Client.Services
 
         public async Task Logout()
         {
-            await _localStorageService.RemoveItemAsync("userId");
-            await _localStorageService.RemoveItemAsync("token");
-            await _localStorageService.RemoveItemAsync("login");
-            await _localStorageService.RemoveItemAsync("name");
-
+            await ClearSavedUserDataAsync();
             _httpClient.DefaultRequestHeaders.Authorization = null;
             _userStateService.ClearUser();
-        }
-
-        public async Task ForceLogoutAsync()
-        {
-            await Logout();
         }
 
         private async Task SaveUserData(AuthResponseDto authData)
@@ -95,6 +88,14 @@ namespace GuessWord.Client.Services
                 new AuthenticationHeaderValue("Bearer", authData.Token);
 
             _userStateService.SetUser(authData.UserId, authData.Token, authData.Login, authData.Name);
+        }
+
+        private async Task ClearSavedUserDataAsync()
+        {
+            foreach (var key in UserStorageKeys)
+            {
+                await _localStorageService.RemoveItemAsync(key);
+            }
         }
     }
 }

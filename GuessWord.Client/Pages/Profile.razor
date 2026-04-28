@@ -86,6 +86,7 @@
     protected override async Task OnInitializedAsync()
     {
         UserState.OnChange += HandleUserStateChanged;
+        await UserState.WaitForInitializationAsync();
         await LoadProfileAsync();
     }
 

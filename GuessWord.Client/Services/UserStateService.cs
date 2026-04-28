@@ -36,6 +36,15 @@ namespace GuessWord.Client.Services
             NotifyStateChanged();
         }
 
+        public async Task WaitForInitializationAsync(CancellationToken cancellationToken = default)
+        {
+            while (!IsInitialized)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await Task.Delay(50, cancellationToken);
+            }
+        }
+
         private void NotifyStateChanged()
         {
             OnChange?.Invoke();

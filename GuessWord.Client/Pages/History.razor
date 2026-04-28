@@ -62,12 +62,12 @@
                         @foreach (var match in FilteredMatches)
                         {
                             <div class="history-row">
-                                <div>@match.Date.ToLocalTime().ToString("dd.MM.yy")</div>
-                                <div>@match.GameType</div>
-                                <div>@match.Result</div>
-                                <div>@match.AttemptsCount</div>
-                                <div>@match.SecretWord</div>
-                                <div>@(string.IsNullOrWhiteSpace(match.OpponentName) ? "-" : match.OpponentName)</div>
+                                <div data-label="Дата">@match.Date.ToLocalTime().ToString("dd.MM.yy")</div>
+                                <div data-label="Тип игры">@match.GameType</div>
+                                <div data-label="Результат">@match.Result</div>
+                                <div data-label="Попытки">@match.AttemptsCount</div>
+                                <div data-label="Слово">@match.SecretWord</div>
+                                <div data-label="Соперник">@(string.IsNullOrWhiteSpace(match.OpponentName) ? "-" : match.OpponentName)</div>
                             </div>
                         }
                     </div>
@@ -97,6 +97,7 @@
     protected override async Task OnInitializedAsync()
     {
         UserState.OnChange += HandleUserStateChanged;
+        await UserState.WaitForInitializationAsync();
         await LoadHistoryAsync();
     }
 

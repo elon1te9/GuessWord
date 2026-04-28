@@ -1,7 +1,8 @@
-@page "/game/single"
+﻿@page "/game/single"
 @implements IDisposable
 @using Microsoft.AspNetCore.Components
 @using GuessWord.Client.Components.Game
+@using GuessWord.Client.Services
 @using GuessWord.Shared.Enums
 @using GuessWord.Shared.Responses
 @inject NavigationManager Navigation
@@ -13,7 +14,10 @@
 <div class="single-game-page">
     @if (isLoading)
     {
-        <p class="single-game-message">Загрузка...</p>
+        <section class="single-game-card single-game-empty-card">
+            <h1 class="single-game-title">Одиночная игра</h1>
+            <p class="single-game-message">Загрузка...</p>
+        </section>
     }
     else if (!UserState.IsAuthorized)
     {
@@ -61,9 +65,6 @@
                             type="button">
                         Сдаться
                     </button>
-                    <button class="single-game-button single-game-button-light" @onclick="NavigateToLobby" type="button">
-                        В лобби
-                    </button>
                 </div>
             </div>
 
@@ -82,10 +83,6 @@
                 </button>
             </form>
 
-            @if (!string.IsNullOrWhiteSpace(pageMessage) && pageMessage != "Это слово уже было введено.")
-            {
-                <p class="single-game-message">@pageMessage</p>
-            }
         </section>
 
         @if (lastSubmittedAttempt is not null || showNotFoundCard || displayAttempts.Count > 0)
@@ -108,7 +105,7 @@
                 @if (displayAttempts.Count > 0)
                 {
                     <AttemptList Attempts="displayAttempts"
-                                 LastSubmittedAttempt="lastSubmittedAttempt" />
+                                 />
                 }
             </section>
         }
@@ -229,7 +226,7 @@
 
         if (string.IsNullOrWhiteSpace(trimmedWord))
         {
-            pageMessage = "Введите слово.";
+            pageMessage = string.Empty;
             return;
         }
 
@@ -308,21 +305,12 @@
 
     private List<GameAttemptResponseDto> BuildDisplayAttempts()
     {
-        if (currentGame is null)
-            return [];
-
-        return currentGame.Attempts
-            .Where(attempt => attempt.IsValid && attempt.Rank.HasValue)
-            .GroupBy(attempt => attempt.Word.Trim(), StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.OrderBy(attempt => attempt.Rank).ThenBy(attempt => attempt.CreatedAt).First())
-            .OrderBy(attempt => attempt.Rank)
-            .ThenBy(attempt => attempt.Word)
-            .ToList();
+        return GameAttemptDisplayHelper.BuildSingleGameAttempts(currentGame?.Attempts);
     }
 
     private static string GetAttemptKey(GameAttemptResponseDto attempt)
     {
-        return $"{attempt.Word}|{attempt.Rank}|{attempt.CreatedAt:O}";
+        return GameAttemptDisplayHelper.BuildAttemptKey(attempt);
     }
 
     public void Dispose()
@@ -330,3 +318,4 @@
         UserState.OnChange -= HandleUserStateChanged;
     }
 }
+

@@ -63,11 +63,6 @@ public class GameService
         return await _apiRequestService.PostAsync<GameStateDto>($"api/games/{gameId}/multiplayer/give-up");
     }
 
-    public async Task<MultiplayerGameResponseDto?> GetMultiplayerGameAsync(int gameId)
-    {
-        return await _apiRequestService.GetAsync<MultiplayerGameResponseDto>($"api/game/multiplayer/{gameId}");
-    }
-
     public async Task<MultiplayerGameResponseDto?> SubmitMultiplayerGuessAsync(int gameId, string word)
     {
         var request = new SubmitGuessRequestDto

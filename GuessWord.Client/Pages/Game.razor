@@ -12,7 +12,10 @@
 <div class="game-page">
     @if (isLoading)
     {
-        <p class="game-message">Загрузка...</p>
+        <section class="game-card game-empty-card">
+            <h1 class="game-title">Игровое лобби</h1>
+            <p class="game-message">Загрузка...</p>
+        </section>
     }
     else if (!UserState.IsAuthorized)
     {
@@ -198,19 +201,19 @@
         Navigation.NavigateTo("/login");
     }
 
-    private async Task ConnectToActiveGameAsync()
+    private Task ConnectToActiveGameAsync()
     {
         if (activeGame is null)
-            return;
+            return Task.CompletedTask;
 
         if (activeGame.GameMode == GameMode.Single)
         {
             Navigation.NavigateTo("/game/single");
-            return;
+            return Task.CompletedTask;
         }
 
         Navigation.NavigateTo($"/game/multiplayer/{activeGame.GameId}");
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
     private async Task StartSingleGameAsync()

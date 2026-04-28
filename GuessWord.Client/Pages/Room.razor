@@ -15,7 +15,10 @@
 <div class="game-page">
     @if (isLoading)
     {
-        <p class="game-message">Загрузка комнаты...</p>
+        <section class="game-card game-empty-card">
+            <h1 class="game-title">Комната 1 на 1</h1>
+            <p class="game-message">Загрузка комнаты...</p>
+        </section>
     }
     else if (!string.IsNullOrWhiteSpace(errorMessage))
     {

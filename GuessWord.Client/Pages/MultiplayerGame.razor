@@ -1,6 +1,7 @@
-@page "/game/multiplayer/{GameId:int}"
+﻿@page "/game/multiplayer/{GameId:int}"
 @implements IAsyncDisposable
 @using GuessWord.Client.Components.Game
+@using GuessWord.Client.Services
 @using GuessWord.Shared.Enums
 @using GuessWord.Shared.Responses
 @using Microsoft.AspNetCore.Components
@@ -15,7 +16,10 @@
 <div class="single-game-page">
     @if (isLoading)
     {
-        <p class="single-game-message">Загрузка...</p>
+        <section class="single-game-card single-game-empty-card">
+            <h1 class="single-game-title">Игра 1 на 1</h1>
+            <p class="single-game-message">Загрузка...</p>
+        </section>
     }
     else if (!UserState.IsAuthorized)
     {
@@ -64,9 +68,6 @@
                             type="button">
                         Сдаться
                     </button>
-                    <button class="single-game-button single-game-button-light" @onclick="NavigateToLobby" type="button">
-                        В лобби
-                    </button>
                 </div>
             </div>
 
@@ -90,10 +91,6 @@
                 </button>
             </form>
 
-            @if (!string.IsNullOrWhiteSpace(pageMessage) && pageMessage != "Это слово уже было введено.")
-            {
-                <p class="single-game-message">@pageMessage</p>
-            }
         </section>
 
         @if (lastSubmittedAttempt is not null || showNotFoundCard || displayAttempts.Count > 0)
@@ -116,7 +113,7 @@
                 @if (displayAttempts.Count > 0)
                 {
                     <AttemptList Attempts="displayAttempts"
-                                 LastSubmittedAttempt="lastSubmittedAttempt" />
+                                 />
                 }
             </section>
         }
@@ -357,25 +354,7 @@
 
     private List<GameAttemptResponseDto> BuildDisplayAttempts()
     {
-        var attempts = GetCurrentPlayer()?.Attempts;
-
-        if (attempts is null)
-            return [];
-
-        return attempts
-            .Where(attempt => attempt.Rank.HasValue)
-            .GroupBy(attempt => attempt.Word.Trim(), StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.OrderBy(attempt => attempt.Rank).ThenBy(attempt => attempt.CreatedAt).First())
-            .OrderBy(attempt => attempt.Rank)
-            .ThenBy(attempt => attempt.Word)
-            .Select(attempt => new GameAttemptResponseDto
-            {
-                Word = attempt.Word,
-                Rank = attempt.Rank,
-                IsValid = true,
-                CreatedAt = attempt.CreatedAt
-            })
-            .ToList();
+        return GameAttemptDisplayHelper.BuildMultiplayerAttempts(GetCurrentPlayer()?.Attempts);
     }
 
     private GamePlayerStateDto? GetCurrentPlayer()
@@ -385,7 +364,7 @@
 
     private static string GetAttemptKey(GameAttemptResponseDto attempt)
     {
-        return $"{attempt.Word}|{attempt.Rank}|{attempt.CreatedAt:O}";
+        return GameAttemptDisplayHelper.BuildAttemptKey(attempt);
     }
 
     private GamePlayerStateDto? GetOpponent()
@@ -479,3 +458,4 @@
         await hubConnection.DisposeAsync();
     }
 }
+
