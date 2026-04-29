@@ -8,14 +8,16 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
+var baseUri = new Uri(builder.HostEnvironment.BaseAddress);
+
 builder.Services.AddScoped(sp => new HttpClient
 {
-    BaseAddress = new Uri("https://localhost:7172/")
+    BaseAddress = baseUri
 });
 
 builder.Services.AddScoped(_ => new ApiSettings
 {
-    BaseUrl = "https://localhost:7172/"
+    BaseUrl = baseUri.ToString()
 });
 
 builder.Services.AddScoped<ApiRequestService>();

@@ -38,12 +38,12 @@ Thumbs.db
 *.log
 
 # =========================
-# NODE (если вдруг будет)
+# NODE
 # =========================
 node_modules/
 
 # =========================
-# LOCAL CONFIG (важно)
+# LOCAL CONFIG
 # =========================
 appsettings.Development.json
 
@@ -51,13 +51,6 @@ appsettings.Development.json
 # SECRETS
 # =========================
 secrets.json
-
-# =========================
-# ENTITY FRAMEWORK
-# =========================
-Migrations/
-
-# (если хочешь сохранять миграции — закомментируй строку выше)
 
 # =========================
 # PUBLISH
