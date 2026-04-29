@@ -50,4 +50,5 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd "${{ secrets.SERVER_PATH }}"
+            docker-compose -f docker-compose.server.yml down
             docker-compose -f docker-compose.server.yml up -d --build
