@@ -1,17 +1,27 @@
-﻿@inject GuessWord.Client.Services.AuthService AuthService
+@inject GuessWord.Client.Services.AuthService AuthService
+@inject GuessWord.Client.Services.UserStateService UserState
 
-<Router AppAssembly="@typeof(App).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-    </Found>
+@if (!UserState.IsInitialized)
+{
+    <LayoutView Layout="@typeof(MainLayout)">
+        <p>Загрузка...</p>
+    </LayoutView>
+}
+else
+{
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
 
-    <NotFound>
-        <LayoutView Layout="@typeof(MainLayout)">
-            <p>Страница не найдена.</p>
-        </LayoutView>
-    </NotFound>
-</Router>
+        <NotFound>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <p>Страница не найдена.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+}
 
 @code {
     protected override async Task OnInitializedAsync()
