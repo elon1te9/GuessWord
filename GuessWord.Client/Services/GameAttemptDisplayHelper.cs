@@ -4,8 +4,7 @@ namespace GuessWord.Client.Services;
 
 public static class GameAttemptDisplayHelper
 {
-    public static List<GameAttemptResponseDto> BuildSingleGameAttempts(
-        IEnumerable<GameAttemptResponseDto>? attempts)
+    public static List<GameAttemptResponseDto> BuildSingleGameAttempts(IEnumerable<GameAttemptResponseDto>? attempts)
     {
         if (attempts is null)
             return [];
@@ -19,8 +18,7 @@ public static class GameAttemptDisplayHelper
             .ToList();
     }
 
-    public static List<GameAttemptResponseDto> BuildMultiplayerAttempts(
-        IEnumerable<GameAttemptDto>? attempts)
+    public static List<GameAttemptResponseDto> BuildMultiplayerAttempts(IEnumerable<GameAttemptDto>? attempts)
     {
         if (attempts is null)
             return [];
